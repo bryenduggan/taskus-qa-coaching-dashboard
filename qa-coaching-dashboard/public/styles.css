@@ -68,7 +68,7 @@ body {
   align-items: center;
   gap: 10px;
 }
-.logo-icon { width: 34px; height: 34px; flex-shrink: 0; }
+.logo-icon { height: 36px; width: auto; flex-shrink: 0; }
 .logo-title {
   display: block;
   font-size: 1rem;
