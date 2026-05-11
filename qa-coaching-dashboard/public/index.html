@@ -54,6 +54,8 @@
     <button class="tab-btn" data-tab="booked">Booked / LT</button>
     <button class="tab-btn" data-tab="no-booking">No Booking</button>
     <button class="tab-btn" data-tab="call-log">Call Log</button>
+    <button class="tab-btn" data-tab="lob">LOB</button>
+    <button class="tab-btn" data-tab="reviewer">Reviewer</button>
   </nav>
 
   <!-- ══════════════════ MAIN ══════════════════ -->
@@ -185,6 +187,8 @@
                 <th>General</th>
                 <th>AF</th>
                 <th>Coaching P1</th>
+                <th>LOB</th>
+                <th>Reviewed By</th>
               </tr>
             </thead>
             <tbody id="cl-tbody"></tbody>
@@ -192,6 +196,35 @@
         </div>
       </div>
       <div class="cl-meta" id="cl-meta"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: LOB
+    ════════════════════════════════════════ -->
+    <div id="tab-lob" class="tab-panel hidden">
+      <div class="kpi-row" id="lob-kpis"></div>
+      <div id="lob-grid" class="lob-grid"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: REVIEWER
+    ════════════════════════════════════════ -->
+    <div id="tab-reviewer" class="tab-panel hidden">
+      <div class="kpi-row" id="rv-kpis"></div>
+      <div class="two-col">
+        <div class="col-left">
+          <div class="card">
+            <h3 class="card-title">Reviewer Breakdown</h3>
+            <div id="rv-table"></div>
+          </div>
+        </div>
+        <div class="col-right">
+          <div class="card">
+            <h3 class="card-title">Avg Score by Reviewer</h3>
+            <canvas id="chart-rv-dist" height="220"></canvas>
+          </div>
+        </div>
+      </div>
     </div>
 
   </main>

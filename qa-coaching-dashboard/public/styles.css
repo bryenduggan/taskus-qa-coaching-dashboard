@@ -607,3 +607,147 @@ body {
 
 /* Chart canvas */
 canvas { max-width: 100%; }
+
+/* ═══════════════════════════════════════════════════════
+   LOB TAB
+   ═══════════════════════════════════════════════════════ */
+
+/* LOB grid — 3 equal cards per row */
+.lob-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+/* Individual LOB card */
+.lob-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lob-card-other {
+  opacity: 0.7;
+}
+
+.lob-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* LOB score summary row */
+.lob-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.lob-score {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.lob-score-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.lob-af-badge {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+/* Section bars inside LOB card */
+.lob-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Rep list inside LOB card */
+.lob-agents {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.lob-agents-title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.lob-agent-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 0.725rem;
+  border-bottom: 1px solid rgba(76,95,103,0.3);
+}
+.lob-agent-row:last-child { border-bottom: none; }
+.lob-agent-name {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.lob-more {
+  text-align: center;
+  font-size: 0.625rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* Weakest section callout */
+.lob-weak {
+  font-size: 0.6875rem;
+  color: var(--amber);
+  background: var(--amber-dim);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+/* Empty state inside LOB card */
+.lob-empty {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ── LOB badges (used across tabs) ──────────────────────── */
+.lob-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.lob-cold      { background: rgba(45,122,185,0.15); color: var(--blue-info); }
+.lob-recycled  { background: rgba(205,181,45,0.15); color: var(--amber); }
+.lob-campaigns { background: rgba(138,204,51,0.12); color: var(--green); }
+.lob-other     { background: rgba(169,183,188,0.10); color: var(--text-muted); }
+
+/* ═══════════════════════════════════════════════════════
+   REVIEWER TAB — reuses .agent-table from Booked tab
+   ═══════════════════════════════════════════════════════ */
+/* No additional styles needed — rv-table uses .agent-table */

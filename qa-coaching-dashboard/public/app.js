@@ -30,7 +30,7 @@ function scoreClass(pct) {
 }
 
 // ── Column indices ────────────────────────────────────────
-// Booked / LT  (A=0 … AO=40)
+// Booked / LT  (A=0 … AQ=42)
 const B = {
   CALL_ID:  0, AGENT: 1, DATE: 2, DURATION: 3, TYPE: 4, OVERALL: 5,
   OP_INTRO: 6,  OP_COMPANY: 7,  OP_PERM: 8,  OP_REASON: 9,  OP_TF: 10,    OP_PCT: 11,
@@ -40,9 +40,10 @@ const B = {
   GN_LISTEN:28, GN_TONE: 29,   GN_CTRL: 30, GN_PCT: 31,
   AF_MISINFO:32, AF_HANG: 33,  AF_PROF: 34, AF_PII: 35,    AF_TRIG: 36,
   CP1: 37, CP2: 38, CP3: 39, NOTES: 40,
+  LOB: 41, REVIEWED_BY: 42,
 };
 
-// No Booking  (A=0 … AF=31)
+// No Booking  (A=0 … AH=33)
 const N = {
   CALL_ID:  0, AGENT: 1, DATE: 2, DURATION: 3, TYPE: 4, OVERALL: 5,
   OP_INTRO: 6,  OP_COMPANY: 7, OP_PERM: 8, OP_HOOK: 9,   OP_PCT: 10,
@@ -51,7 +52,45 @@ const N = {
   AF_MISINFO:22, AF_HANG: 23, AF_PROF: 24, AF_TRIG: 25,
   DIAG_PB:  26, DIAG_OBJ: 27,
   CP1: 28, CP2: 29, CP3: 30, NOTES: 31,
+  LOB: 32, REVIEWED_BY: 33,
 };
+
+// ── LOB helpers ───────────────────────────────────────────
+function normalizeLOB(raw) {
+  if (!raw) return '';
+  const s = raw.toLowerCase();
+  if (s.includes('cold') || s.includes('overnight')) return 'Cold';
+  if (s.includes('recycl'))                           return 'Recycled';
+  if (s.includes('campaign') || s.includes('summit')) return 'Campaigns';
+  return '';
+}
+
+// All known reps — used to filter out non-TaskUs entries
+const REP_WHITELIST = new Set([
+  // Cold
+  'John Jerick Moldes','Sheila May Lasam','Robles Jan Paolo','Eillen Mae Cruz',
+  'Brian Diether Lobo','Angelo Okamoto','Sajid Baider','Noel Manhilot',
+  'Jaca Charles Tobby','Elisha Po','Jade Niño Dela Cerna','James Dela Vega',
+  'Judy Cebuano','Maebelle Jasareno','Marianne Keith Sales','Miral Julgie Franz',
+  'Renz Gomez','Richard Gopez','Alex Saberdo','Erpry Acedo','Gino Magat',
+  'Johann Sebastian Miguel','Jose Mari Caro','Ma Luisa Padron','Mhaick Justine Rodulfo',
+  'Paul Vitangcol','Genito Randolff','Aljohn Sebastian','Evangelica Babaan',
+  'Irish Francesca Turla','Jenzen Abelardo','Rashied Amino','Rhein Jazrelle Mendenuta',
+  'Ronin Bascon','Marc David Esperanza','Koko Nonoy','Santos Vasquez','John Relucio',
+  'John Lester Anuat','Alfred Retazo','Ejay Santos','Patrick Jayson Alarcon',
+  'Regil Kent Gipanao','Mark Eran Akiko Alim','Ysabelle Velasco','Isaac Juliano',
+  'John Daryl Zamora','John Dabandan','Veronica Halili','Diyan Maraya',
+  'Mark Levi Delima','Andy Heartynazck Hugo','Franniella San Mateo',
+  // Recycled (unique)
+  'Markell Manalo','Ronin Felisario','Jessie Tatad','Aileen Salazar',
+  'Robelle Joy Salvador','Aff Daryll Zeta','John Mark Albelda','Jhon Carlos Magbanua',
+  'Vince Nicole Tamayo','Julian Simon Babaran','Geofrey Flores','Kim Descallar',
+  'Christian Lanzar','Rosalie Padiernos','Renz Christian Fernandez',
+  'Pierre Anton Salandanan','Jerick Labordo',
+  // Campaigns
+  'Yumang Kevin Oscar','Sandre Scott Castro','Sylvia Bermiso','Gabriel Maluya',
+  'Mariane Kaye Ruallo',
+]);
 
 // ── Parsing helpers ───────────────────────────────────────
 function parseRows(rawRows) {
@@ -431,6 +470,234 @@ function buildNoBooking(nbRows) {
 }
 
 // ════════════════════════════════════════════════════════
+//  LOB TAB  (executive view — Cold / Recycled / Campaigns)
+// ════════════════════════════════════════════════════════
+function buildLOB(bookedRows, nbRows) {
+  const allCalls = [
+    ...bookedRows.map(r => ({ r, rubric: 'booked' })),
+    ...nbRows.map(r => ({ r, rubric: 'nb' })),
+  ];
+
+  const LOB_CATS = ['Cold', 'Recycled', 'Campaigns'];
+
+  // Group by normalised LOB
+  const lobMap = { Cold: [], Recycled: [], Campaigns: [], Other: [] };
+  allCalls.forEach(({ r, rubric }) => {
+    const raw = val(r, rubric === 'booked' ? B.LOB : N.LOB);
+    const lob = normalizeLOB(raw) || 'Other';
+    lobMap[lob].push({ r, rubric });
+  });
+
+  const total = allCalls.length;
+  el('lob-kpis').innerHTML = [
+    kpiCard('Total Calls', total, 'across all LOBs', 'blue'),
+    kpiCard('Cold',      lobMap.Cold.length,      `${total ? Math.round(lobMap.Cold.length / total * 100) : 0}% of calls`, lobMap.Cold.length ? 'blue' : 'amber'),
+    kpiCard('Recycled',  lobMap.Recycled.length,  `${total ? Math.round(lobMap.Recycled.length / total * 100) : 0}% of calls`, lobMap.Recycled.length ? 'amber' : 'amber'),
+    kpiCard('Campaigns', lobMap.Campaigns.length, `${total ? Math.round(lobMap.Campaigns.length / total * 100) : 0}% of calls`, lobMap.Campaigns.length ? 'green' : 'amber'),
+  ].join('');
+
+  const grid = el('lob-grid');
+  grid.innerHTML = '';
+
+  LOB_CATS.forEach(cat => {
+    const calls = lobMap[cat];
+    if (!calls.length) {
+      grid.innerHTML += `<div class="lob-card">
+        <div class="lob-card-header">
+          <span class="lob-badge lob-${cat.toLowerCase()}">${cat}</span>
+          <span style="color:var(--text-muted);font-size:0.75rem">0 calls</span>
+        </div>
+        <div class="lob-empty">No ${cat} calls in this batch.<br>Ensure "Line of Business" column is filled in the sheet.</div>
+      </div>`;
+      return;
+    }
+
+    const scores = calls.map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
+    const avgScore  = avg(scores);
+    const autofails = calls.filter(c =>
+      c.rubric === 'booked' ? isYes(c.r, B.AF_TRIG) : isYes(c.r, N.AF_TRIG)
+    ).length;
+
+    // Section avgs (combine booked + nb where applicable)
+    function secAvg(bookedIdx, nbIdx) {
+      const vals = [
+        ...calls.filter(c => c.rubric === 'booked').map(c => pct(c.r, bookedIdx)),
+        ...(nbIdx !== null ? calls.filter(c => c.rubric === 'nb').map(c => pct(c.r, nbIdx)) : []),
+      ].filter(n => n !== null);
+      return vals.length ? avg(vals) : null;
+    }
+    const sections = [
+      ['Opener',     secAvg(B.OP_PCT, N.OP_PCT)],
+      ['Discovery',  secAvg(B.DC_PCT, N.DC_PCT)],
+      ['Pitch/Obj',  secAvg(B.PT_PCT, N.OB_PCT)],
+      ['Next Step',  secAvg(B.NS_PCT, null)],
+      ['General',    secAvg(B.GN_PCT, null)],
+    ].filter(([, v]) => v !== null);
+
+    const weakSection = sections.reduce((w, s) => w === null || s[1] < w[1] ? s : w, null);
+
+    // Top agents by call count / score
+    const agentMap = {};
+    calls.forEach(({ r }) => {
+      const agent = val(r, B.AGENT);
+      const score = pct(r, B.OVERALL);
+      if (!agent || score === null) return;
+      if (!agentMap[agent]) agentMap[agent] = [];
+      agentMap[agent].push(score);
+    });
+    const agentList = Object.entries(agentMap)
+      .map(([name, s]) => ({ name, avg: avg(s), count: s.length }))
+      .sort((a, b) => a.avg - b.avg)
+      .slice(0, 5);
+
+    grid.innerHTML += `<div class="lob-card">
+      <div class="lob-card-header">
+        <span class="lob-badge lob-${cat.toLowerCase()}">${cat}</span>
+        <span style="color:var(--text-muted);font-size:0.75rem">${calls.length} call${calls.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="lob-score-row">
+        <span class="lob-score" style="color:${scoreColor(avgScore)}">${avgScore}%</span>
+        <span class="lob-score-label">avg score</span>
+        ${autofails > 0 ? `<span class="lob-af-badge">⚠️ ${autofails} AF</span>` : ''}
+      </div>
+      <div class="lob-sections">
+        ${sections.map(([name, v]) => sectionBar(name, v)).join('')}
+      </div>
+      <div class="lob-agents">
+        <div class="lob-agents-title">Rep Coaching Focus</div>
+        ${agentList.map(a => `<div class="lob-agent-row">
+          <span class="lob-agent-name">${esc(a.name)}</span>
+          <span style="color:${scoreColor(a.avg)};font-size:0.6875rem;font-weight:600">${a.avg}%</span>
+        </div>`).join('')}
+        ${Object.keys(agentMap).length > 5 ? `<div class="lob-more">+${Object.keys(agentMap).length - 5} more reps</div>` : ''}
+      </div>
+      ${weakSection ? `<div class="lob-weak">⚑ Weakest section: <strong>${esc(weakSection[0])}</strong> at ${weakSection[1]}%</div>` : ''}
+    </div>`;
+  });
+
+  // Show uncategorised bucket if any
+  if (lobMap.Other.length) {
+    grid.innerHTML += `<div class="lob-card lob-card-other">
+      <div class="lob-card-header">
+        <span class="lob-badge lob-other">Uncategorized</span>
+        <span style="color:var(--text-muted);font-size:0.75rem">${lobMap.Other.length} call${lobMap.Other.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="lob-empty">These calls have no LOB value in the sheet.<br>Fill the "Line of Business" column to categorize them.</div>
+    </div>`;
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  REVIEWER TAB  (QA reviewer consistency tracking)
+// ════════════════════════════════════════════════════════
+function buildReviewer(bookedRows, nbRows) {
+  const allCalls = [
+    ...bookedRows.map(r => ({ r, rubric: 'booked' })),
+    ...nbRows.map(r => ({ r, rubric: 'nb' })),
+  ];
+
+  if (!allCalls.length) {
+    el('rv-kpis').innerHTML = '<p style="color:var(--text-muted)">No calls in this batch.</p>';
+    el('rv-table').innerHTML = '';
+    return;
+  }
+
+  const reviewerMap = {};
+  allCalls.forEach(({ r, rubric }) => {
+    const raw = val(r, rubric === 'booked' ? B.REVIEWED_BY : N.REVIEWED_BY);
+    const reviewer = raw || 'Unassigned';
+    const score    = pct(r, B.OVERALL);
+    const agent    = val(r, B.AGENT);
+    if (!reviewerMap[reviewer]) reviewerMap[reviewer] = { scores: [], calls: 0, agents: new Set() };
+    reviewerMap[reviewer].calls++;
+    if (agent) reviewerMap[reviewer].agents.add(agent);
+    if (score !== null) reviewerMap[reviewer].scores.push(score);
+  });
+
+  const reviewers = Object.entries(reviewerMap)
+    .map(([name, d]) => ({ name, avg: d.scores.length ? avg(d.scores) : null, calls: d.calls, agents: d.agents.size }))
+    .sort((a, b) => b.calls - a.calls);
+
+  function isAI(name) { return /ai|claude/i.test(name); }
+
+  const aiReviewers     = reviewers.filter(r => isAI(r.name));
+  const humanReviewers  = reviewers.filter(r => !isAI(r.name) && r.name !== 'Unassigned');
+  const unassignedCount = (reviewerMap['Unassigned'] || {}).calls || 0;
+
+  const totalHuman  = humanReviewers.reduce((s, r) => s + r.calls, 0);
+  const totalAI     = aiReviewers.reduce((s, r) => s + r.calls, 0);
+  const humanAvgVal = humanReviewers.length
+    ? avg(humanReviewers.filter(r => r.avg !== null).map(r => r.avg)) : null;
+  const aiAvgVal    = aiReviewers.length
+    ? avg(aiReviewers.filter(r => r.avg !== null).map(r => r.avg)) : null;
+  const delta       = humanAvgVal !== null && aiAvgVal !== null ? Math.abs(humanAvgVal - aiAvgVal) : null;
+
+  el('rv-kpis').innerHTML = [
+    kpiCard('Total Reviewed', allCalls.length, `${unassignedCount ? `${unassignedCount} unassigned` : 'all assigned'}`, 'blue'),
+    kpiCard('Human QA', totalHuman, `${allCalls.length ? Math.round(totalHuman / allCalls.length * 100) : 0}% of reviews`, 'green'),
+    kpiCard('AI Scored', totalAI, `${allCalls.length ? Math.round(totalAI / allCalls.length * 100) : 0}% of reviews`, 'blue'),
+    delta !== null
+      ? kpiCard('Score Delta', `${delta}%`, `Human ${humanAvgVal}% vs AI ${aiAvgVal}%`, delta <= 5 ? 'green' : 'amber')
+      : kpiCard('Score Delta', '—', 'Need both reviewer types', 'amber'),
+  ].join('');
+
+  el('rv-table').innerHTML = `
+    <table class="agent-table">
+      <thead>
+        <tr>
+          <th>Reviewer</th>
+          <th>Type</th>
+          <th>Calls Reviewed</th>
+          <th>Reps Covered</th>
+          <th>Avg Score Given</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${reviewers.map(r => {
+          const ai   = isAI(r.name);
+          const type = ai ? 'AI' : r.name === 'Unassigned' ? '—' : 'Human QA';
+          const typeBg    = ai ? 'var(--blue-dim)' : r.name === 'Unassigned' ? 'transparent' : 'var(--green-dim)';
+          const typeColor = ai ? 'var(--blue-info)' : r.name === 'Unassigned' ? 'var(--text-dim)' : 'var(--green)';
+          return `<tr>
+            <td style="font-weight:500">${esc(r.name)}</td>
+            <td><span style="font-size:0.6875rem;padding:2px 7px;border-radius:99px;background:${typeBg};color:${typeColor}">${type}</span></td>
+            <td>${r.calls}</td>
+            <td>${r.agents}</td>
+            <td>${r.avg !== null ? `<span class="score-pill ${scoreClass(r.avg)}">${r.avg}%</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+
+  // Chart — avg score per reviewer (horizontal bar)
+  destroyChart('rv-dist');
+  const chartData = reviewers.filter(r => r.name !== 'Unassigned' && r.avg !== null);
+  if (chartData.length) {
+    charts['rv-dist'] = new Chart(el('chart-rv-dist'), {
+      type: 'bar',
+      data: {
+        labels: chartData.map(r => r.name),
+        datasets: [{
+          label: 'Avg Score %',
+          data: chartData.map(r => r.avg),
+          backgroundColor: chartData.map(r => isAI(r.name) ? BLUE_INFO : GREEN),
+          borderRadius: 4,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { min: 0, max: 100, grid: { color: '#4c5f67' }, ticks: { callback: v => v + '%' } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════
 //  CALL LOG TAB
 // ════════════════════════════════════════════════════════
 let activeAgentFilter = 'all';
@@ -496,7 +763,7 @@ function renderCallRows(allCalls) {
   tbody.innerHTML = '';
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="14" class="cl-empty">No calls match the current filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="cl-empty">No calls match the current filter.</td></tr>`;
     el('cl-meta').textContent = '';
     return;
   }
@@ -506,13 +773,13 @@ function renderCallRows(allCalls) {
     const rowId    = `cl-row-${idx}`;
     const detailId = `cl-det-${idx}`;
 
-    const callId  = val(r, B.CALL_ID);
-    const agent   = val(r, B.AGENT);
-    const date    = val(r, B.DATE);
-    const dur     = val(r, B.DURATION);
-    const type    = val(r, B.TYPE);
-    const overall = pct(r, B.OVERALL);
-    const cls     = overall !== null ? scoreClass(overall) : 'amber';
+    const callId     = val(r, B.CALL_ID);
+    const agent      = val(r, B.AGENT);
+    const date       = val(r, B.DATE);
+    const dur        = val(r, B.DURATION);
+    const type       = val(r, B.TYPE);
+    const overall    = pct(r, B.OVERALL);
+    const cls        = overall !== null ? scoreClass(overall) : 'amber';
 
     // Section %s (vary by rubric)
     const opPct = rubric === 'booked' ? pct(r, B.OP_PCT) : pct(r, N.OP_PCT);
@@ -522,6 +789,11 @@ function renderCallRows(allCalls) {
     const gnPct = rubric === 'booked' ? pct(r, B.GN_PCT) : null;
     const afTrig = rubric === 'booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG);
     const cp1    = rubric === 'booked' ? val(r, B.CP1) : val(r, N.CP1);
+
+    // LOB + reviewer
+    const lobRaw     = val(r, rubric === 'booked' ? B.LOB : N.LOB);
+    const lob        = normalizeLOB(lobRaw) || lobRaw;
+    const reviewedBy = val(r, rubric === 'booked' ? B.REVIEWED_BY : N.REVIEWED_BY);
 
     function pctCell(v) {
       if (v === null) return `<td style="color:var(--text-dim)">—</td>`;
@@ -547,13 +819,15 @@ function renderCallRows(allCalls) {
       ${pctCell(gnPct)}
       <td style="color:${afTrig ? RED : 'var(--text-dim)'}">${afTrig ? '⚠️ Yes' : '—'}</td>
       <td style="color:var(--text-muted);font-size:0.6875rem;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(cp1)}">${esc(cp1) || '—'}</td>
+      <td>${lob ? `<span class="lob-badge lob-${lob.toLowerCase()}">${esc(lob)}</span>` : `<span style="color:var(--text-dim)">—</span>`}</td>
+      <td style="color:var(--text-muted);font-size:0.6875rem;white-space:nowrap">${esc(reviewedBy) || '—'}</td>
     `;
 
     // Expanded detail row
     const detailRow = document.createElement('tr');
     detailRow.id = detailId;
     detailRow.style.display = 'none';
-    detailRow.innerHTML = `<td colspan="14" class="cl-detail-cell">${buildDetailHTML(r, rubric)}</td>`;
+    detailRow.innerHTML = `<td colspan="16" class="cl-detail-cell">${buildDetailHTML(r, rubric)}</td>`;
 
     tbody.appendChild(dataRow);
     tbody.appendChild(detailRow);
@@ -690,6 +964,14 @@ function showTab(tabId) {
   if (tabId === 'call-log' && !builtTabs.has('call-log')) {
     buildCallLog(bookedRows, nbRows);
     builtTabs.add('call-log');
+  }
+  if (tabId === 'lob' && !builtTabs.has('lob')) {
+    buildLOB(bookedRows, nbRows);
+    builtTabs.add('lob');
+  }
+  if (tabId === 'reviewer' && !builtTabs.has('reviewer')) {
+    buildReviewer(bookedRows, nbRows);
+    builtTabs.add('reviewer');
   }
 }
 
