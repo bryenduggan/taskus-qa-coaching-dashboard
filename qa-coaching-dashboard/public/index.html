@@ -54,7 +54,9 @@
     <button class="tab-btn" data-tab="booked">Booked / LT</button>
     <button class="tab-btn" data-tab="no-booking">No Booking</button>
     <button class="tab-btn" data-tab="call-log">Call Log</button>
-    <button class="tab-btn" data-tab="lob">LOB</button>
+    <button class="tab-btn" data-tab="lob">Executive (LOB)</button>
+    <button class="tab-btn" data-tab="manager">Manager View</button>
+    <button class="tab-btn" data-tab="rep">Rep Detail</button>
     <button class="tab-btn" data-tab="reviewer">Reviewer</button>
   </nav>
 
@@ -204,6 +206,25 @@
     <div id="tab-lob" class="tab-panel hidden">
       <div class="kpi-row" id="lob-kpis"></div>
       <div id="lob-grid" class="lob-grid"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: MANAGER VIEW  (Layer 2)
+    ════════════════════════════════════════ -->
+    <div id="tab-manager" class="tab-panel hidden">
+      <div class="kpi-row" id="mgr-kpis"></div>
+      <div id="mgr-grid" class="mgr-grid"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: REP DETAIL  (Layer 3)
+    ════════════════════════════════════════ -->
+    <div id="tab-rep" class="tab-panel hidden">
+      <div class="rep-selector-wrap">
+        <label class="rep-selector-label" for="rep-select">Rep</label>
+        <select id="rep-select" class="rep-select"></select>
+      </div>
+      <div id="rep-content"></div>
     </div>
 
     <!-- ════════════════════════════════════════

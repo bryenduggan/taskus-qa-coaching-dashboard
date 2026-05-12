@@ -748,6 +748,240 @@ canvas { max-width: 100%; }
 .lob-other     { background: rgba(169,183,188,0.10); color: var(--text-muted); }
 
 /* ═══════════════════════════════════════════════════════
+   REP LINK BUTTON  (clickable rep name inline)
+   ═══════════════════════════════════════════════════════ */
+.rep-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--blue-info);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: transparent;
+  transition: color 0.12s, text-decoration-color 0.12s;
+}
+.rep-link-btn:hover {
+  color: var(--green);
+  text-decoration-color: var(--green);
+}
+
+/* ═══════════════════════════════════════════════════════
+   MANAGER TAB  — Layer 2
+   ═══════════════════════════════════════════════════════ */
+.mgr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.mgr-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mgr-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mgr-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--heading);
+}
+.mgr-meta {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.mgr-score-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.mgr-score {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.mgr-sections {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.mgr-rep-list {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.mgr-rep-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  padding: 0 0 6px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.mgr-rep-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+.mgr-rep-row.clickable { cursor: pointer; }
+.mgr-rep-row.clickable:hover { background: var(--surface-2); }
+.mgr-rep-name {
+  font-size: 0.8125rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mgr-rep-row.clickable .mgr-rep-name { color: var(--blue-info); }
+.mgr-rep-row.clickable:hover .mgr-rep-name { color: var(--green); }
+
+/* ═══════════════════════════════════════════════════════
+   REP DETAIL TAB  — Layer 3
+   ═══════════════════════════════════════════════════════ */
+.rep-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.rep-selector-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.rep-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  padding: 7px 12px;
+  cursor: pointer;
+  min-width: 260px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a9b7bc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  transition: border-color 0.12s;
+}
+.rep-select:hover  { border-color: var(--border-sub); }
+.rep-select:focus  { outline: none; border-color: var(--green); }
+
+.rep-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 24px;
+  font-size: 0.875rem;
+}
+
+.rep-header-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+.rep-avatar-lg {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.rep-header-info { flex: 1; min-width: 0; }
+.rep-name-lg {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--heading);
+  margin-bottom: 6px;
+}
+.rep-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.rep-meta-item {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.rep-meta-item strong { color: var(--text); }
+.rep-score-badge {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  flex-shrink: 0;
+}
+
+.rep-detail-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.rep-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cp-priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+.cp-priority-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.cp-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--amber);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
    REVIEWER TAB — reuses .agent-table from Booked tab
    ═══════════════════════════════════════════════════════ */
 /* No additional styles needed — rv-table uses .agent-table */
