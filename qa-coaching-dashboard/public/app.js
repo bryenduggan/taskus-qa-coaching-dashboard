@@ -45,12 +45,15 @@ const N = {
 // ── Manager → Rep mapping ─────────────────────────────────────
 const MANAGER_MAP = {
   'Grant Mendano':   ['Jessie Tatad','Eillen Mae Cruz','Franniella San Mateo','Markell Manalo',
-                      'Edrian Maraya','Mark Levi Delima','Andy Heartynazck Hugo','Renz Christian Fernandez'],
+                      'Edrian Maraya','Mark Levi Delima','Andy Heartynazck Hugo','Renz Christian Fernandez',
+                      'Ma Luisa Padron'],
   'Joseph Pastrana': ['Alex Saberdo','Noel Manhilot','Regil Kent Gipanao','Ronin Felisario',
-                      'Aff Daryll Zeta','John Daryl Zamora','Raul John Dalandan','Christian Lanzar'],
+                      'Aff Daryll Zeta','John Daryl Zamora','Raul John Dalandan','Christian Lanzar',
+                      'Rhein Jazrelle Mendenueta','John Jerick Moldes','John Hoefel Relucio'],
   'Kharlo De Leon':  ['Richard Gopez','Sajid Baider','Veronica Halili','Mark Eran Akiko Alim',
                       'Ysabelle Velasco','Vince Nicole Tamayo','Sheila May Lasam','Charles Tobby Jaca'],
   'Aki Lopez':       ['Ejay Santos','Aileen Salazar','Jerick Labordo','Mariane Kaye Ruallo','Gabriel Maluya'],
+  'Daizy Malate':    ['Julian Simon Babaran'],
 };
 
 // reverse lookup rep → manager
