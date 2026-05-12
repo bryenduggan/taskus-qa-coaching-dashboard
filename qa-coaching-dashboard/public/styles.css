@@ -985,3 +985,75 @@ canvas { max-width: 100%; }
    REVIEWER TAB — reuses .agent-table from Booked tab
    ═══════════════════════════════════════════════════════ */
 /* No additional styles needed — rv-table uses .agent-table */
+
+/* ═══════════════════════════════════════════════════════
+   EXPANDABLE SECTION BARS
+   ═══════════════════════════════════════════════════════ */
+.sbar-expandable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  transition: background 0.1s;
+}
+.sbar-expandable:hover {
+  background: rgba(138,204,51,0.05);
+}
+.sbar-chevron {
+  display: inline-block;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-dim);
+  margin-right: 4px;
+  vertical-align: middle;
+  user-select: none;
+  transition: color 0.15s;
+}
+.sbar-expandable:hover .sbar-chevron {
+  color: var(--green);
+}
+.sbar-items {
+  display: none;
+  margin-top: 8px;
+  padding: 8px 0 4px 12px;
+  border-top: 1px solid var(--border);
+}
+.sbar-items.open {
+  display: block;
+}
+.sbar-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.sbar-item-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  width: 148px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sbar-item-track {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sbar-item-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+.sbar-item-fill.green { background: var(--green); }
+.sbar-item-fill.amber { background: var(--amber); }
+.sbar-item-fill.red   { background: var(--red); }
+.sbar-item-pct {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}

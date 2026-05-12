@@ -33,7 +33,7 @@ const B = {
 
 // ── Column indices — No Booking  (A=0 … AH=33) ───────────────
 const N = {
-  CALL_ID:0, AGENT:1, DATE:2, COMPANY:3, LEAD:4, OVERALL:5,
+  CALL_ID:0, AGENT:1, DATE:2, DURATION:3, TYPE:4, OVERALL:5,
   OP_HOOK:6, OP_PURPOSE:7, OP_CONTEXT:8, OP_RIGHT_PERSON:9, OP_PCT:10,
   DC_PROC:11, DC_PAIN:12, DC_POSITION:13, DC_PCT:14,
   OB_REASON:15, OB_VALUE:16, OB_PIVOT:17, OB_CLARIFY:18, OB_PACING:19, OB_RESPECT:20, OB_PCT:21,
@@ -108,6 +108,43 @@ function sectionBar(name, value) {
     </div>
     <div class="sbar-track"><div class="sbar-fill ${cls}" style="width:${Math.min(value,100)}%"></div></div>
   </div>`;
+}
+
+let _sbarUid = 0;
+function expandableSectionBar(name, value, items) {
+  if (value === null || isNaN(value)) return '';
+  const cls = scoreClass(value);
+  const colorMap = { green: GREEN, amber: AMBER, red: RED };
+  const color = colorMap[cls];
+  const uid = `xsbar-${++_sbarUid}`;
+  const validItems = (items || []).filter(([, v]) => v !== null);
+  const hasItems = validItems.length > 0;
+  const itemsHTML = hasItems ? `<div class="sbar-items" id="${uid}">
+      ${validItems.map(([label, v]) => {
+        const ic = scoreClass(v);
+        return `<div class="sbar-item-row">
+          <span class="sbar-item-label">${esc(label)}</span>
+          <div class="sbar-item-track"><div class="sbar-item-fill ${ic}" style="width:${Math.min(v,100)}%"></div></div>
+          <span class="sbar-item-pct" style="color:${colorMap[ic]}">${v}%</span>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+  return `<div class="sbar-row${hasItems ? ' sbar-expandable' : ''}"${hasItems ? ` onclick="toggleSbarExpand('${uid}',this)"` : ''}>
+    <div class="sbar-header">
+      <span class="sbar-name">${hasItems ? `<span class="sbar-chevron">›</span> ` : ''}${esc(name)}</span>
+      <span class="sbar-pct" style="color:${color}">${value}%</span>
+    </div>
+    <div class="sbar-track"><div class="sbar-fill ${cls}" style="width:${Math.min(value,100)}%"></div></div>
+    ${itemsHTML}
+  </div>`;
+}
+
+function toggleSbarExpand(uid, rowEl) {
+  const items = el(uid);
+  if (!items) return;
+  const isOpen = items.classList.toggle('open');
+  const chevron = rowEl.querySelector('.sbar-chevron');
+  if (chevron) chevron.textContent = isOpen ? '˅' : '›';
 }
 
 function kpiCard(label, value, sub, colorClass) {
@@ -233,8 +270,38 @@ function buildBooked(bookedRows) {
   ].join('');
 
   el('booked-section-bars').innerHTML = [
-    ['Opener', B.OP_PCT], ['Discovery', B.DC_PCT], ['Pitch', B.PT_PCT], ['Next Step', B.NS_PCT], ['General', B.GN_PCT],
-  ].map(([name, i]) => sectionBar(name, avg(bookedRows.map(r => pct(r,i)).filter(n=>n!==null)))).join('');
+    ['Opener',    B.OP_PCT, [
+      ['Intro / Name',    hitRate(bookedRows, B.OP_INTRO)],
+      ['Purpose',         hitRate(bookedRows, B.OP_PURPOSE)],
+      ['Context',         hitRate(bookedRows, B.OP_CONTEXT)],
+      ['Industry',        hitRate(bookedRows, B.OP_INDUSTRY)],
+      ['Company Size',    hitRate(bookedRows, B.OP_COMPANY_SIZE)],
+    ]],
+    ['Discovery', B.DC_PCT, [
+      ['Current Process', hitRate(bookedRows, B.DC_PROC)],
+      ['Need / Pain',     hitRate(bookedRows, B.DC_PAIN)],
+      ['Econ Impact',     hitRate(bookedRows, B.DC_ECON)],
+      ['Implicit Needs',  hitRate(bookedRows, B.DC_IMPLICIT)],
+      ['Urgency',         hitRate(bookedRows, B.DC_URG)],
+    ]],
+    ['Pitch',     B.PT_PCT, [
+      ['Restate & Validate', hitRate(bookedRows, B.PT_RESTATE)],
+      ['Present Jobber',     hitRate(bookedRows, B.PT_PRESENT)],
+    ]],
+    ['Next Step', B.NS_PCT, [
+      ['NS Established',  hitRate(bookedRows, B.NS_EST)],
+      ['Confirmed',       hitRate(bookedRows, B.NS_CONFIRM)],
+      ['Recap',           hitRate(bookedRows, B.NS_RECAP)],
+      ['Addl Help',       hitRate(bookedRows, B.NS_ADDL)],
+      ['Close (LT)',      hitRate(bookedRows, B.NS_CLOSE_LT)],
+      ['Close (Book)',    hitRate(bookedRows, B.NS_CLOSE_BK)],
+    ]],
+    ['General',   B.GN_PCT, [
+      ['Objection Handling', hitRate(bookedRows, B.GN_OBJ)],
+      ['Communication',      hitRate(bookedRows, B.GN_COMM)],
+      ['Acknowledgement',    hitRate(bookedRows, B.GN_ACK)],
+    ]],
+  ].map(([name, i, items]) => expandableSectionBar(name, avg(bookedRows.map(r => pct(r,i)).filter(n=>n!==null)), items)).join('');
 
   destroyChart('discovery');
   const discItems = [
@@ -297,13 +364,30 @@ function buildNoBooking(nbRows) {
   ].join('');
 
   el('nb-section-bars').innerHTML = [
-    ['Opener', N.OP_PCT], ['Discovery', N.DC_PCT], ['Objections', N.OB_PCT],
-  ].map(([name, i]) => sectionBar(name, avg(nbRows.map(r => pct(r,i)).filter(n=>n!==null)))).join('');
+    ['Opener', N.OP_PCT, [
+      ['Hook / Pattern Interrupt', hitRate(nbRows, N.OP_HOOK)],
+      ['Purpose',                  hitRate(nbRows, N.OP_PURPOSE)],
+      ['Context',                  hitRate(nbRows, N.OP_CONTEXT)],
+      ['Right Person',             hitRate(nbRows, N.OP_RIGHT_PERSON)],
+    ]],
+    ['Discovery', N.DC_PCT, [
+      ['Current Process',          hitRate(nbRows, N.DC_PROC)],
+      ['Dig Into Pain',            hitRate(nbRows, N.DC_PAIN)],
+      ['Position Jobber',          hitRate(nbRows, N.DC_POSITION)],
+    ]],
+    ['Objections', N.OB_PCT, [
+      ['Reason with Obj.',         hitRate(nbRows, N.OB_REASON)],
+      ['Value vs Obj.',            hitRate(nbRows, N.OB_VALUE)],
+      ['Pivot & Ask',              hitRate(nbRows, N.OB_PIVOT)],
+      ['Clarifying Question',      hitRate(nbRows, N.OB_CLARIFY)],
+      ['Pacing & Tone',            hitRate(nbRows, N.OB_PACING)],
+      ['Respect SP Wishes',        hitRate(nbRows, N.OB_RESPECT)],
+    ]],
+  ].map(([name, i, items]) => expandableSectionBar(name, avg(nbRows.map(r => pct(r,i)).filter(n=>n!==null)), items)).join('');
 
-  el('nb-opener-bars').innerHTML = [
-    ['Hook / Pattern Interrupt', N.OP_HOOK], ['Purpose', N.OP_PURPOSE],
-    ['Context', N.OP_CONTEXT], ['Right Person', N.OP_RIGHT_PERSON],
-  ].map(([name, i]) => { const v = hitRate(nbRows, i); return v !== null ? sectionBar(name, v) : ''; }).join('');
+  // Opener item detail now lives inside the expandable Opener bar above
+  const nbOpenerBars = el('nb-opener-bars');
+  if (nbOpenerBars) nbOpenerBars.closest('.card') && (nbOpenerBars.closest('.card').style.display = 'none');
 
   destroyChart('objections');
   const objLabels = Object.keys(objCounts), objValues = Object.values(objCounts);
