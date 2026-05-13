@@ -19,7 +19,7 @@ const BLUE_INFO = '#2d7ab9';
 function scoreColor(pct) { return pct >= 80 ? GREEN : pct >= 65 ? AMBER : RED; }
 function scoreClass(pct) { return pct >= 80 ? 'green' : pct >= 65 ? 'amber' : 'red'; }
 
-// ── Column indices — Booked / LT  (A=0 … AQ=42) ──────────────
+// ── Column indices — Booked / LT  (A=0 … AS=44) ──────────────
 const B = {
   CALL_ID:0, AGENT:1, DATE:2, DURATION:3, TYPE:4, OVERALL:5,
   OP_INTRO:6, OP_PURPOSE:7, OP_CONTEXT:8, OP_INDUSTRY:9, OP_COMPANY_SIZE:10, OP_PCT:11,
@@ -28,10 +28,10 @@ const B = {
   NS_EST:21, NS_CONFIRM:22, NS_RECAP:23, NS_ADDL:24, NS_CLOSE_LT:25, NS_CLOSE_BK:26, NS_PCT:27,
   GN_OBJ:28, GN_COMM:29, GN_ACK:30, GN_PCT:31,
   AF_MISINFO:32, AF_RUDE:33, AF_PROF:34, AF_PII:35, AF_TRIG:36,
-  CP1:37, CP2:38, CP3:39, NOTES:40, LOB:41, REVIEWED_BY:42,
+  CP1:37, CP2:38, CP3:39, NOTES:40, LOB:41, REVIEWED_BY:42, DATE_SCORED:43, LEAD_STATUS:44,
 };
 
-// ── Column indices — No Booking  (A=0 … AH=33) ───────────────
+// ── Column indices — No Booking  (A=0 … AJ=35) ───────────────
 const N = {
   CALL_ID:0, AGENT:1, DATE:2, DURATION:3, TYPE:4, OVERALL:5,
   OP_HOOK:6, OP_PURPOSE:7, OP_CONTEXT:8, OP_RIGHT_PERSON:9, OP_PCT:10,
@@ -39,7 +39,7 @@ const N = {
   OB_REASON:15, OB_VALUE:16, OB_PIVOT:17, OB_CLARIFY:18, OB_PACING:19, OB_RESPECT:20, OB_PCT:21,
   AF_RUDE:22, AF_MISINFO:23, AF_LEGAL:24, AF_TRIG:25,
   DIAG1:26, DIAG2:27,
-  CP1:28, CP2:29, CP3:30, NOTES:31, LOB:32, REVIEWED_BY:33,
+  CP1:28, CP2:29, CP3:30, NOTES:31, LOB:32, REVIEWED_BY:33, DATE_SCORED:34, LEAD_STATUS:35,
 };
 
 // ── Manager → Rep mapping ─────────────────────────────────────
@@ -172,6 +172,21 @@ function revioLink(callId) {
   return `<a class="rev-link" href="${REVENUE_IO_BASE}${callId}" target="_blank" rel="noopener">
     ${esc(callId)}<svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7 1h4v4M11 1L5 7M4 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </a>`;
+}
+
+// ── Lead Status badge (color-coded by Salesforce status value) ─
+function leadStatusBadge(statusRaw) {
+  if (!statusRaw || statusRaw === '—' || statusRaw === '') return `<span style="color:var(--text-dim)">—</span>`;
+  const s = statusRaw.toLowerCase();
+  let color, bg;
+  if (s.includes('convert') || s.includes('book'))          { color = GREEN;     bg = 'rgba(138,204,51,0.12)'; }
+  else if (s.includes('working') || s.includes('nurtur'))   { color = BLUE_INFO; bg = 'rgba(45,122,185,0.12)'; }
+  else if (s.includes('call back') || s.includes('callbk')) { color = AMBER;     bg = 'rgba(205,181,45,0.12)'; }
+  else if (s.includes('not interest') || s.includes('unqualified') || s.includes('disqualif')) {
+                                                               color = RED;       bg = 'rgba(223,120,109,0.12)'; }
+  else if (s.includes('new'))                               { color = '#a78bfa'; bg = 'rgba(167,139,250,0.12)'; }
+  else                                                       { color = 'var(--text-muted)'; bg = 'rgba(255,255,255,0.05)'; }
+  return `<span style="font-size:0.625rem;padding:2px 7px;border-radius:99px;background:${bg};color:${color};font-weight:600;white-space:nowrap">${esc(statusRaw)}</span>`;
 }
 
 const charts = {};
@@ -866,7 +881,7 @@ function renderCallRows(allCalls) {
   const tbody = el('cl-tbody');
   tbody.innerHTML = '';
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="16" class="cl-empty">No calls match the current filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="18" class="cl-empty">No calls match the current filter.</td></tr>`;
     el('cl-meta').textContent = '';
     return;
   }
@@ -887,9 +902,11 @@ function renderCallRows(allCalls) {
     const gnPct   = rubric === 'booked' ? pct(r, B.GN_PCT) : null;
     const afTrig  = rubric === 'booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG);
     const cp1     = rubric === 'booked' ? val(r, B.CP1) : val(r, N.CP1);
-    const lobRaw  = val(r, rubric==='booked' ? B.LOB : N.LOB);
-    const lob     = normalizeLOB(lobRaw) || lobRaw;
-    const reviewer= val(r, rubric==='booked' ? B.REVIEWED_BY : N.REVIEWED_BY);
+    const lobRaw     = val(r, rubric==='booked' ? B.LOB : N.LOB);
+    const lob        = normalizeLOB(lobRaw) || lobRaw;
+    const reviewer   = val(r, rubric==='booked' ? B.REVIEWED_BY : N.REVIEWED_BY);
+    const dateScored = val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED);
+    const leadStatus = val(r, rubric==='booked' ? B.LEAD_STATUS : N.LEAD_STATUS);
     function pc(v) { return v===null ? `<td style="color:var(--text-dim)">—</td>` : `<td style="color:${scoreColor(v)};font-weight:600">${v}%</td>`; }
 
     const dataRow = document.createElement('tr');
@@ -904,13 +921,15 @@ function renderCallRows(allCalls) {
       <td><span class="score-pill ${cls}">${overall!==null?overall+'%':'—'}</span></td>
       ${pc(opPct)}${pc(dcPct)}${pc(ptPct)}${pc(nsPct)}${pc(gnPct)}
       <td style="color:${afTrig?RED:'var(--text-dim)'}">${afTrig?'⚠️ Yes':'—'}</td>
-      <td style="color:var(--text-muted);font-size:0.6875rem;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(cp1)}">${esc(cp1)||'—'}</td>
+      <td style="color:var(--text-muted);font-size:0.6875rem;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(cp1)}">${esc(cp1)||'—'}</td>
       <td>${lob?`<span class="lob-badge lob-${lob.toLowerCase()}">${esc(lob)}</span>`:`<span style="color:var(--text-dim)">—</span>`}</td>
-      <td style="color:var(--text-muted);font-size:0.6875rem">${esc(reviewer)||'—'}</td>`;
+      <td style="color:var(--text-muted);font-size:0.6875rem">${esc(reviewer)||'—'}</td>
+      <td style="color:var(--text-muted);font-size:0.6875rem;white-space:nowrap">${esc(dateScored)||'—'}</td>
+      <td>${leadStatusBadge(leadStatus)}</td>`;
 
     const detailRow = document.createElement('tr');
     detailRow.id = detailId; detailRow.style.display = 'none';
-    detailRow.innerHTML = `<td colspan="16" class="cl-detail-cell">${buildDetailHTML(r, rubric)}</td>`;
+    detailRow.innerHTML = `<td colspan="18" class="cl-detail-cell">${buildDetailHTML(r, rubric)}</td>`;
     tbody.appendChild(dataRow); tbody.appendChild(detailRow);
   });
 
@@ -1025,6 +1044,20 @@ async function loadData() {
       const d = new Date(data.fetchedAt);
       el('fetch-time').textContent = `Updated ${d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}`;
     }
+
+    // Last Scored stamp — find most recent Date Scored value across both tabs
+    const allDateScored = [
+      ...bookedRows.map(r => val(r, B.DATE_SCORED)),
+      ...nbRows.map(r => val(r, N.DATE_SCORED)),
+    ].filter(Boolean);
+    if (allDateScored.length) {
+      // Sort MM/DD/YYYY strings by converting to sortable YYYY-MM-DD
+      const toSortable = d => { const [m,day,y] = d.split('/'); return `${y}-${m}-${day}`; };
+      const latest = allDateScored.sort((a,b) => toSortable(b).localeCompare(toSortable(a)))[0];
+      const lastScoredEl = el('last-scored');
+      if (lastScoredEl) lastScoredEl.textContent = `Last scored: ${latest}`;
+    }
+
     dataCache = { bookedRows, nbRows };
     el('loading').classList.add('hidden');
     buildOverview(bookedRows, nbRows);
