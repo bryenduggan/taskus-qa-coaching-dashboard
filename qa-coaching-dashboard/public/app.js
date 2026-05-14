@@ -6,6 +6,10 @@
 
 const REVENUE_IO_BASE = 'https://analytics.revenue.io/conversations/';
 
+// Minimum scored calls before a rep is surfaced in coaching rankings.
+// Below this threshold the rep is shown in a separate "Limited data" section.
+const MIN_CALLS_FOR_COACHING = 5;
+
 Chart.defaults.color       = '#5a7077';  /* --text-muted light */
 Chart.defaults.borderColor = '#dcd6ca';  /* --border light */
 Chart.defaults.font.family = "Inter, Helvetica, Arial, sans-serif";
@@ -320,7 +324,9 @@ function buildOverview(bookedRows, nbRows) {
     (agentMap[agent] = agentMap[agent] || []).push(score);
   });
   const agentAvgs     = Object.entries(agentMap).map(([name, s]) => ({ name, avg: avg(s), count: s.length }));
-  const coachNowCount = agentAvgs.filter(a => a.avg < 65).length;
+  const qualified     = agentAvgs.filter(a => a.count >= MIN_CALLS_FOR_COACHING);
+  const limited       = agentAvgs.filter(a => a.count < MIN_CALLS_FOR_COACHING);
+  const coachNowCount = qualified.filter(a => a.avg < 65).length;
 
   const sectionLabels = ['Opener','Discovery','Pitch / Handling','Next Step','General'];
   const bSec = [B.OP_PCT, B.DC_PCT, B.PT_PCT, B.NS_PCT, B.GN_PCT].map(i => avg(bookedRows.map(r => pct(r,i)).filter(n=>n!==null)));
@@ -355,27 +361,52 @@ function buildOverview(bookedRows, nbRows) {
     options: { plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#4c5f67' } }, y: { grid: { color: '#4c5f67' }, ticks: { stepSize: 1 } } } },
   });
 
-  agentAvgs.sort((a, b) => a.avg - b.avg);
+  qualified.sort((a, b) => a.avg - b.avg);
+  limited.sort((a, b) => a.name.localeCompare(b.name));
+
   const badgeMap = { green: 'badge-strong', amber: 'badge-review', red: 'badge-coach' };
   const labelMap = { green: 'Strong', amber: 'Review', red: 'Coach Now' };
-  el('agent-coaching-list').innerHTML = agentAvgs.map(a => {
+
+  const renderQualified = a => {
     const cls = scoreClass(a.avg);
     return `<div class="agent-row" onclick="drillRep('${esc(a.name)}')" style="cursor:pointer" title="Click to view ${esc(a.name)}'s detail">
       <div class="agent-avatar">${initials(a.name)}</div>
       <div class="agent-info">
         <div class="agent-name">${esc(a.name)}</div>
-        <div class="agent-meta">${a.count} call${a.count !== 1 ? 's' : ''} · avg ${a.avg}%</div>
+        <div class="agent-meta">${a.count} calls · avg ${a.avg}%</div>
       </div>
       <span class="badge ${badgeMap[cls]}">${labelMap[cls]}</span>
     </div>`;
-  }).join('');
+  };
 
-  const lowest = agentAvgs[0], highest = agentAvgs[agentAvgs.length - 1];
+  const renderLimited = a => `
+    <div class="agent-row agent-row-limited" onclick="drillRep('${esc(a.name)}')" style="cursor:pointer" title="${esc(a.name)} — only ${a.count} call${a.count !== 1 ? 's' : ''} scored">
+      <div class="agent-avatar">${initials(a.name)}</div>
+      <div class="agent-info">
+        <div class="agent-name">${esc(a.name)}</div>
+        <div class="agent-meta">${a.count} call${a.count !== 1 ? 's' : ''} · avg ${a.avg}%</div>
+      </div>
+      <span class="badge badge-limited">⚠ ${a.count} call${a.count !== 1 ? 's' : ''}</span>
+    </div>`;
+
+  let coachingHTML = qualified.map(renderQualified).join('');
+  if (limited.length) {
+    coachingHTML += `<div class="coaching-limited-divider">Limited data — fewer than ${MIN_CALLS_FOR_COACHING} calls</div>`;
+    coachingHTML += limited.map(renderLimited).join('');
+  }
+  el('agent-coaching-list').innerHTML = coachingHTML;
+
+  const lowest  = qualified[0];
+  const highest = qualified[qualified.length - 1];
+  const limitedNote = limited.length
+    ? ` ${limited.length} rep${limited.length !== 1 ? 's' : ''} excluded from ranking (< ${MIN_CALLS_FOR_COACHING} calls).`
+    : '';
   el('ai-text').textContent =
     `Team avg is ${teamAvg}% across ${allRows.length} scored calls. ` +
     `${totalAF === 0 ? 'No autofails this batch — strong discipline.' : `⚠️ ${totalAF} autofail(s) need immediate review.`} ` +
-    `${sectionLabels[weakIdx]} is the weakest section at ${combined[weakIdx]}%. ` +
-    `${lowest.name} needs the most support (${lowest.avg}%); ${highest.name} is leading at ${highest.avg}%.`;
+    `${sectionLabels[weakIdx]} is the weakest section at ${combined[weakIdx]}%.` +
+    (lowest && highest ? ` ${lowest.name} needs the most support (${lowest.avg}%); ${highest.name} is leading at ${highest.avg}%.` : '') +
+    limitedNote;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -712,12 +743,15 @@ function buildManager(bookedRows, nbRows) {
       ${sections.length ? `<div class="mgr-sections">${sections.map(([n,v]) => sectionBar(n,v)).join('')}</div>` : ''}
       <div class="mgr-rep-list">
         <div class="mgr-rep-header"><span>Rep</span><span>Score</span><span>Calls</span></div>
-        ${repRows.map(rep => `
-          <div class="mgr-rep-row ${rep.calls > 0 ? 'clickable' : ''}" ${rep.calls > 0 ? `onclick="drillRep('${esc(rep.name)}')"` : ''} title="${rep.calls > 0 ? `View ${esc(rep.name)}'s detail` : 'No calls scored'}">
+        ${repRows.map(rep => {
+          const isLimited = rep.calls > 0 && rep.calls < MIN_CALLS_FOR_COACHING;
+          return `
+          <div class="mgr-rep-row ${rep.calls > 0 ? 'clickable' : ''}${isLimited ? ' mgr-rep-limited' : ''}" ${rep.calls > 0 ? `onclick="drillRep('${esc(rep.name)}')"` : ''} title="${rep.calls > 0 ? `View ${esc(rep.name)}'s detail${isLimited ? ` — limited data (${rep.calls} calls)` : ''}` : 'No calls scored'}">
             <span class="mgr-rep-name">${esc(rep.name)}</span>
-            <span>${rep.avg !== null ? `<span class="score-pill ${scoreClass(rep.avg)}">${rep.avg}%</span>` : `<span style="color:var(--text-dim);font-size:0.6875rem">no calls</span>`}</span>
-            <span style="color:var(--text-dim);font-size:0.6875rem">${rep.calls > 0 ? `${rep.calls}` : ''}</span>
-          </div>`).join('')}
+            <span>${rep.avg !== null ? `<span class="score-pill ${scoreClass(rep.avg)}${isLimited ? ' score-pill-limited' : ''}">${rep.avg}%</span>` : `<span style="color:var(--text-dim);font-size:0.6875rem">no calls</span>`}</span>
+            <span style="color:var(--text-dim);font-size:0.6875rem">${rep.calls > 0 ? `${rep.calls}${isLimited ? ' ⚠' : ''}` : ''}</span>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   });

@@ -346,6 +346,34 @@ body {
 .badge-strong { background: var(--green-dim);  color: var(--green); }
 .badge-review { background: var(--amber-dim);  color: var(--amber); }
 .badge-coach  { background: var(--red-dim);    color: var(--red); }
+.badge-limited { background: var(--surface-2); color: var(--text-dim); border: 1px solid var(--border); }
+
+/* ── Limited-data coaching section ──────────────────── */
+.coaching-limited-divider {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 0 6px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.agent-row-limited {
+  opacity: 0.55;
+}
+.agent-row-limited:hover {
+  opacity: 0.8;
+}
+.score-pill-limited {
+  opacity: 0.55;
+}
+.mgr-rep-limited {
+  opacity: 0.55;
+}
+.mgr-rep-limited:hover {
+  opacity: 0.8;
+}
 
 /* ── Agent table (Booked tab) ────────────────────────── */
 .agent-table {
