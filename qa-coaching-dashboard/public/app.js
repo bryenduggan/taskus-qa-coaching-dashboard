@@ -983,7 +983,10 @@ function buildCallLog(bookedRows, nbRows) {
     fw.appendChild(chip);
   }
   makeChip('All reps', 'all');
-  agents.forEach(a => makeChip(a, a));
+  agents.forEach(a => {
+    const count = allCalls.filter(c => val(c.r, B.AGENT) === a).length;
+    makeChip(`${a} (${count})`, a);
+  });
   renderCallRows(allCalls);
 }
 
