@@ -6,15 +6,20 @@
 
 const REVENUE_IO_BASE = 'https://analytics.revenue.io/conversations/';
 
-Chart.defaults.color       = '#a9b7bc';
-Chart.defaults.borderColor = '#4c5f67';
+Chart.defaults.color       = '#5a7077';  /* --text-muted light */
+Chart.defaults.borderColor = '#dcd6ca';  /* --border light */
 Chart.defaults.font.family = "Inter, Helvetica, Arial, sans-serif";
 Chart.defaults.font.size   = 12;
 
-const GREEN     = '#8acc33';
-const AMBER     = '#cdb52d';
-const RED       = '#df786d';
-const BLUE_INFO = '#2d7ab9';
+/* Darker values for text contrast on white; still vivid for chart fills */
+const GREEN     = '#3d7200';
+const AMBER     = '#7a5800';
+const RED       = '#a82018';
+const BLUE_INFO = '#1555a0';
+/* Bright versions used only as chart bar fills */
+const C_GREEN   = '#8acc33';
+const C_AMBER   = '#cdb52d';
+const C_RED     = '#df786d';
 
 function scoreColor(pct) { return pct >= 80 ? GREEN : pct >= 65 ? AMBER : RED; }
 function scoreClass(pct) { return pct >= 80 ? 'green' : pct >= 65 ? 'amber' : 'red'; }
@@ -346,7 +351,7 @@ function buildOverview(bookedRows, nbRows) {
   });
   charts['dist'] = new Chart(el('chart-dist'), {
     type: 'bar',
-    data: { labels: buckets, datasets: [{ data: counts, backgroundColor: [RED,RED,AMBER,GREEN,GREEN], borderRadius: 4, borderSkipped: false }] },
+    data: { labels: buckets, datasets: [{ data: counts, backgroundColor: [C_RED,C_RED,C_AMBER,C_GREEN,C_GREEN], borderRadius: 4, borderSkipped: false }] },
     options: { plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#4c5f67' } }, y: { grid: { color: '#4c5f67' }, ticks: { stepSize: 1 } } } },
   });
 
@@ -519,7 +524,7 @@ function buildNoBooking(nbRows) {
   if (objLabels.length) {
     charts['objections'] = new Chart(el('chart-objections'), {
       type: 'doughnut',
-      data: { labels: objLabels, datasets: [{ data: objValues, backgroundColor: objLabels.map((_,i) => palette[i%palette.length]), borderWidth: 2, borderColor: '#232b2f' }] },
+      data: { labels: objLabels, datasets: [{ data: objValues, backgroundColor: objLabels.map((_,i) => palette[i%palette.length]), borderWidth: 2, borderColor: '#ffffff' }] },
       options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { padding: 12, font: { size: 11 } } } } },
     });
   }
@@ -1105,6 +1110,7 @@ function showTab(tabId) {
   const { bookedRows, nbRows } = getFilteredData();
 
   const builders = {
+    'overview':   () => buildOverview(bookedRows, nbRows),
     'booked':     () => buildBooked(bookedRows),
     'no-booking': () => buildNoBooking(nbRows),
     'call-log':   () => buildCallLog(bookedRows, nbRows),

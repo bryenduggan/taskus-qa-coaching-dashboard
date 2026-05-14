@@ -1,39 +1,39 @@
 /* ═══════════════════════════════════════════════════════
-   Jobber QA Intelligence Hub — Atlantis Design System
-   Dark mode tokens from @jobber/design v0.89.1
+   Jobber QA Intelligence Hub — Light Theme
+   Warm beige palette · Jobber brand navy header
    ═══════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Atlantis dark-mode surface scale ── */
-  --bg:          #171b1c;   /* blue-1000 dark */
-  --surface:     #232b2f;   /* blue-900 dark  */
-  --surface-2:   #34454b;   /* blue-800 dark  */
-  --border:      #4c5f67;   /* blue-700 dark  */
-  --border-sub:  #84979f;   /* blue-500       */
+  /* ── Surface scale (light) ── */
+  --bg:          #f0ead9;   /* warm beige page background */
+  --surface:     #ffffff;   /* white cards */
+  --surface-2:   #f5f0e8;   /* very light warm — inner sections */
+  --border:      #dcd6ca;   /* warm gray border */
+  --border-sub:  #b8ae9f;   /* slightly darker warm gray */
 
-  /* ── Atlantis semantic status ── */
-  --green:       #8acc33;   /* dark-mode interactive */
-  --green-dim:   rgba(138,204,51,0.10);
-  --green-text:  #8acc33;
-  --amber:       #cdb52d;   /* yellow-400     */
-  --amber-dim:   rgba(205,181,45,0.12);
-  --red:         #df786d;   /* red-500 dark   */
-  --red-dim:     rgba(223,120,109,0.10);
-  --blue-info:   #2d7ab9;   /* lightBlue-600  */
-  --blue-dim:    rgba(45,122,185,0.12);
+  /* ── Semantic status (darkened for text contrast on white) ── */
+  --green:       #3d7200;   /* readable on white bg */
+  --green-dim:   rgba(61,114,0,0.10);
+  --green-text:  #3d7200;
+  --amber:       #7a5800;   /* readable on white bg */
+  --amber-dim:   rgba(122,88,0,0.10);
+  --red:         #a82018;   /* readable on white bg */
+  --red-dim:     rgba(168,32,24,0.10);
+  --blue-info:   #1555a0;   /* readable on white bg */
+  --blue-dim:    rgba(21,85,160,0.10);
 
-  /* ── Atlantis text scale ── */
-  --text:        #eef1f2;   /* blue-200 */
-  --text-muted:  #a9b7bc;   /* blue-400 */
-  --text-dim:    #4c5f67;   /* blue-700 */
-  --heading:     #f9fafb;   /* blue-100 */
+  /* ── Text scale ── */
+  --text:        #1a2b32;
+  --text-muted:  #5a7077;
+  --text-dim:    #9aacb2;
+  --heading:     #012939;   /* Jobber brand navy */
 
-  /* ── Atlantis radius / shadow ── */
-  --radius:    8px;   /* --radius-base  */
-  --radius-sm: 4px;   /* --radius-small */
-  --radius-lg: 16px;  /* --radius-large */
-  --shadow:    0px 1px 4px 0px rgba(0,0,0,0.25), 0px 4px 12px 0px rgba(0,0,0,0.15);
-  --shadow-low:0px 1px 2px rgba(0,0,0,0.35), 0px 0px 2px rgba(0,0,0,0.2);
+  /* ── Radius / shadow (lighter for light bg) ── */
+  --radius:    8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow:    0px 1px 3px rgba(0,0,0,0.08), 0px 4px 12px rgba(0,0,0,0.05);
+  --shadow-low:0px 1px 2px rgba(0,0,0,0.06), 0px 0px 1px rgba(0,0,0,0.04);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -49,8 +49,8 @@ body {
 
 /* ── Header ──────────────────────────────────────────── */
 .header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: #012939;   /* Jobber brand navy — stays dark */
+  border-bottom: 1px solid rgba(255,255,255,0.08);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -73,13 +73,13 @@ body {
   display: block;
   font-size: 1rem;
   font-weight: 500;
-  color: var(--heading);
+  color: #f9fafb;
   letter-spacing: -0.01em;
 }
 .logo-sub {
   display: block;
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.5);
 }
 .header-meta {
   display: flex;
@@ -88,12 +88,12 @@ body {
 }
 .fetch-time {
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.5);
 }
 .refresh-btn {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.85);
   padding: 5px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -102,15 +102,19 @@ body {
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 .refresh-btn:hover {
-  background: var(--green-dim);
-  border-color: var(--green);
-  color: var(--green);
+  background: rgba(138,204,51,0.18);
+  border-color: #8acc33;
+  color: #8acc33;
 }
 
 /* ── Tab Nav ─────────────────────────────────────────── */
+/* Outer strip stays Jobber navy; inner wrapper centers content */
+.tab-nav-strip {
+  background: #012939;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
 .tab-nav {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: transparent;
   display: flex;
   padding: 0 24px;
   max-width: 1400px;
@@ -122,7 +126,7 @@ body {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.55);
   cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -131,10 +135,10 @@ body {
   transition: color 0.12s, border-color 0.12s;
   white-space: nowrap;
 }
-.tab-btn:hover { color: var(--text); }
+.tab-btn:hover { color: rgba(255,255,255,0.9); }
 .tab-btn.active {
-  color: var(--green);
-  border-bottom-color: var(--green);
+  color: #8acc33;
+  border-bottom-color: #8acc33;
 }
 
 /* ── Main ────────────────────────────────────────────── */
@@ -454,7 +458,7 @@ body {
   min-width: 900px;
 }
 .cl-table thead tr {
-  background: #1c2428;
+  background: var(--surface-2);
 }
 .cl-table th {
   padding: 8px 10px;
@@ -476,8 +480,8 @@ body {
   vertical-align: middle;
 }
 .cl-table tr:last-child > td { border-bottom: none; }
-.cl-table tbody tr.data-row:hover > td { background: rgba(52,69,75,0.5); }
-.cl-table tbody tr.data-row.expanded > td { background: rgba(52,69,75,0.6); }
+.cl-table tbody tr.data-row:hover > td { background: rgba(220,214,202,0.5); }
+.cl-table tbody tr.data-row.expanded > td { background: rgba(220,214,202,0.7); }
 
 /* Revenue.io link */
 .rev-link {
@@ -518,7 +522,7 @@ body {
 }
 .cl-detail-inner {
   padding: 14px 16px;
-  background: #1a2730;
+  background: var(--surface-2);
 }
 .detail-grid {
   display: grid;
@@ -1061,28 +1065,33 @@ canvas { max-width: 100%; }
 /* ═══════════════════════════════════════════════════════
    PERIOD FILTER BAR
    ═══════════════════════════════════════════════════════ */
+/* Period bar — outer strip stays navy, inner div aligns with header-inner */
+.period-bar-strip {
+  background: #012939;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.period-bar-strip.hidden { display: none; }
 .period-bar {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 8px 24px;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
-.period-bar.hidden { display: none; }
 .period-label {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: rgba(255,255,255,0.45);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-right: 4px;
 }
 .period-btn {
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.6);
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 500;
@@ -1093,19 +1102,19 @@ canvas { max-width: 100%; }
   white-space: nowrap;
 }
 .period-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
-  border-color: var(--border-sub);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.9);
+  border-color: rgba(255,255,255,0.35);
 }
 .period-btn.active {
-  background: var(--green-dim);
-  color: var(--green);
-  border-color: var(--green);
+  background: rgba(138,204,51,0.18);
+  color: #8acc33;
+  border-color: #8acc33;
   font-weight: 600;
 }
 .period-range-label {
   font-size: 0.6875rem;
-  color: var(--text-dim);
+  color: rgba(255,255,255,0.35);
   margin-left: 6px;
   font-style: italic;
 }
