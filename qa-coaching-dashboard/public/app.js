@@ -177,20 +177,126 @@ function revioLink(callId) {
 // ── Lead Status badge (color-coded by Salesforce status value) ─
 function leadStatusBadge(statusRaw) {
   if (!statusRaw || statusRaw === '—' || statusRaw === '') return `<span style="color:var(--text-dim)">—</span>`;
-  const s = statusRaw.toLowerCase();
-  let color, bg;
-  if (s.includes('convert') || s.includes('book'))          { color = GREEN;     bg = 'rgba(138,204,51,0.12)'; }
-  else if (s.includes('working') || s.includes('nurtur'))   { color = BLUE_INFO; bg = 'rgba(45,122,185,0.12)'; }
-  else if (s.includes('call back') || s.includes('callbk')) { color = AMBER;     bg = 'rgba(205,181,45,0.12)'; }
+  const s = statusRaw.toLowerCase().trim();
+  let color, bg, emoji;
+
+  // Booked / LT outcomes → green
+  if (s === 'sql' || s === 'meeting booked' || s.includes('convert') || s.includes('book')) {
+    color = GREEN;     bg = 'rgba(138,204,51,0.12)';  emoji = '🟢';
+  }
+  // Meeting No Show → amber (caution)
+  else if (s === 'meeting no show' || s.includes('no show')) {
+    color = AMBER;     bg = 'rgba(205,181,45,0.12)';  emoji = '🟡';
+  }
+  // Working / Nurturing / MQL → blue
+  else if (s.includes('working') || s.includes('nurtur') || s === 'mql') {
+    color = BLUE_INFO; bg = 'rgba(45,122,185,0.12)';  emoji = '🔵';
+  }
+  // Call Back → amber
+  else if (s.includes('call back') || s.includes('callbk')) {
+    color = AMBER;     bg = 'rgba(205,181,45,0.12)';  emoji = '🟡';
+  }
+  // Not Interested / Unqualified / Disqualified → red
   else if (s.includes('not interest') || s.includes('unqualified') || s.includes('disqualif')) {
-                                                               color = RED;       bg = 'rgba(223,120,109,0.12)'; }
-  else if (s.includes('new'))                               { color = '#a78bfa'; bg = 'rgba(167,139,250,0.12)'; }
-  else                                                       { color = 'var(--text-muted)'; bg = 'rgba(255,255,255,0.05)'; }
-  return `<span style="font-size:0.625rem;padding:2px 7px;border-radius:99px;background:${bg};color:${color};font-weight:600;white-space:nowrap">${esc(statusRaw)}</span>`;
+    color = RED;       bg = 'rgba(223,120,109,0.12)'; emoji = '🔴';
+  }
+  // New Lead → purple
+  else if (s.includes('new')) {
+    color = '#a78bfa'; bg = 'rgba(167,139,250,0.12)'; emoji = '🟣';
+  }
+  // Fallback
+  else {
+    color = 'var(--text-muted)'; bg = 'rgba(255,255,255,0.05)'; emoji = '';
+  }
+
+  return `<span style="font-size:0.625rem;padding:2px 7px;border-radius:99px;background:${bg};color:${color};font-weight:600;white-space:nowrap">${emoji ? emoji + ' ' : ''}${esc(statusRaw)}</span>`;
 }
 
 const charts = {};
 function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ── Period filter ─────────────────────────────────────────────
+let currentPeriod = 'all';
+
+function parseDateStr(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  // YYYY-MM-DD (how DateScored is written)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  // MM/DD/YYYY (how Revenue.io dates come through)
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const [m, d, y] = s.split('/').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return null;
+}
+
+function inPeriod(dateStr, { start, end }) {
+  const d = parseDateStr(dateStr);
+  if (!d) return false;
+  return d >= start && d <= end;
+}
+
+function getPeriodBounds(period) {
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dow   = today.getDay(); // 0 = Sun, 1 = Mon …
+
+  if (period === 'current-week') {
+    // Mon–Sun ISO week
+    const mon = new Date(today); mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+    const sun = new Date(mon);   sun.setDate(mon.getDate() + 6);
+    return { start: mon, end: sun };
+  }
+  if (period === 'prev-week') {
+    const thisMon = new Date(today); thisMon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+    const prevMon = new Date(thisMon); prevMon.setDate(thisMon.getDate() - 7);
+    const prevSun = new Date(thisMon); prevSun.setDate(thisMon.getDate() - 1);
+    return { start: prevMon, end: prevSun };
+  }
+  if (period === 'mtd') {
+    return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
+  }
+  if (period === 'qtd') {
+    const q = Math.floor(today.getMonth() / 3);
+    return { start: new Date(today.getFullYear(), q * 3, 1), end: today };
+  }
+  return null;
+}
+
+function getFilteredData() {
+  if (!dataCache) return { bookedRows: [], nbRows: [] };
+  if (currentPeriod === 'all') return dataCache;
+  const bounds = getPeriodBounds(currentPeriod);
+  if (!bounds) return dataCache;
+  return {
+    bookedRows: dataCache.bookedRows.filter(r => inPeriod(val(r, B.DATE_SCORED), bounds)),
+    nbRows:     dataCache.nbRows.filter(r => inPeriod(val(r, N.DATE_SCORED), bounds)),
+  };
+}
+
+function switchPeriod(p) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === p));
+  const lbl = el('period-range-label');
+  if (p !== 'all') {
+    const bounds = getPeriodBounds(p);
+    if (bounds && lbl) {
+      const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      lbl.textContent = `${fmt(bounds.start)} – ${fmt(bounds.end)}`;
+    }
+  } else {
+    if (lbl) lbl.textContent = '';
+  }
+  builtTabs.clear();
+  if (dataCache) {
+    const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'overview';
+    showTab(activeTab);
+  }
+}
 
 // ════════════════════════════════════════════════════════════════
 //  OVERVIEW TAB
@@ -996,7 +1102,7 @@ function showTab(tabId) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
   el(`tab-${tabId}`).classList.remove('hidden');
   if (!dataCache) return;
-  const { bookedRows, nbRows } = dataCache;
+  const { bookedRows, nbRows } = getFilteredData();
 
   const builders = {
     'booked':     () => buildBooked(bookedRows),
@@ -1027,8 +1133,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 async function loadData() {
   el('loading').classList.remove('hidden');
   el('error-state').classList.add('hidden');
+  el('period-filter').classList.add('hidden');
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-  builtTabs.clear(); dataCache = null; activeAgentFilter = 'all'; currentRep = null;
+  builtTabs.clear(); dataCache = null; activeAgentFilter = 'all'; currentRep = null; currentPeriod = 'all';
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === 'all'));
   Object.keys(charts).forEach(id => { charts[id].destroy(); delete charts[id]; });
 
   try {
@@ -1060,6 +1168,7 @@ async function loadData() {
 
     dataCache = { bookedRows, nbRows };
     el('loading').classList.add('hidden');
+    el('period-filter').classList.remove('hidden');
     buildOverview(bookedRows, nbRows);
     builtTabs.add('overview');
     showTab('overview');
