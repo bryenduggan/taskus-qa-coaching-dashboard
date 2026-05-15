@@ -511,6 +511,22 @@ body {
 .cl-th-active {
   color: var(--green) !important;
 }
+/* ─── Trend mode buttons ─────────────────────────────────────── */
+.trend-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.trend-btn + .trend-btn { margin-left: 4px; }
+.trend-btn:hover { border-color: var(--green); color: var(--green); }
+.trend-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
 .cl-table td {
   padding: 7px 10px;
   font-size: 0.75rem;

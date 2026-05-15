@@ -883,15 +883,130 @@ function buildManager(bookedRows, nbRows) {
 // ════════════════════════════════════════════════════════════════
 //  REP DETAIL TAB  — Layer 3
 // ════════════════════════════════════════════════════════════════
-let currentRep = null;
+let currentRep    = null;
+let repTrendMode  = 'wow';
+let currentRepLob = null;
 
 function drillRep(repName) {
   currentRep = repName;
   showTab('rep');
 }
 
+// ─── Trend chart helpers ──────────────────────────────────────────────────────
+function isoMonday(date) {
+  const d = new Date(date); d.setHours(0,0,0,0);
+  const dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return d;
+}
+function lastNWeekBuckets(n) {
+  const thisMon = isoMonday(new Date());
+  const buckets = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const start = new Date(thisMon); start.setDate(thisMon.getDate() - i * 7);
+    const end   = new Date(start);   end.setDate(start.getDate() + 6);
+    buckets.push({ label: `${start.getMonth()+1}/${start.getDate()}`, start, end });
+  }
+  return buckets;
+}
+function lastNMonthBuckets(n) {
+  const today = new Date();
+  const buckets = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const start = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const end   = new Date(today.getFullYear(), today.getMonth() - i + 1, 0);
+    buckets.push({ label: start.toLocaleString('default',{month:'short',year:'2-digit'}), start, end });
+  }
+  return buckets;
+}
+function qtdWeekBuckets() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const q     = Math.floor(today.getMonth() / 3);
+  const qStart = new Date(today.getFullYear(), q * 3, 1);
+  const firstMon = isoMonday(qStart);
+  const buckets = []; let cur = new Date(firstMon), wk = 1;
+  while (cur <= today) {
+    const end = new Date(cur); end.setDate(cur.getDate() + 6);
+    buckets.push({ label: `W${wk}`, start: new Date(cur), end });
+    cur.setDate(cur.getDate() + 7); wk++;
+  }
+  return buckets;
+}
+function callsInBucket(calls, bucket) {
+  return calls.filter(({ r, rubric }) => {
+    const d = parseDateStr(val(r, rubric === 'booked' ? B.DATE_SCORED : N.DATE_SCORED));
+    return d && d >= bucket.start && d <= bucket.end;
+  });
+}
+function avgScoreInBucket(calls, bucket) {
+  const scores = callsInBucket(calls, bucket).map(({ r }) => pct(r, B.OVERALL)).filter(n => n !== null);
+  return scores.length ? avg(scores) : null;
+}
+function renderRepTrendChart(repName, lob) {
+  destroyChart('rep-trend');
+  const canvas = el('chart-rep-trend');
+  if (!canvas || !dataCache) return;
+  const allCalls = [
+    ...dataCache.bookedRows.map(r => ({ r, rubric:'booked' })),
+    ...dataCache.nbRows.map(r    => ({ r, rubric:'nb'     })),
+  ];
+  const repCalls = allCalls.filter(({ r, rubric }) =>
+    val(r, rubric === 'booked' ? B.AGENT : N.AGENT) === repName
+  );
+  const lobPeers = allCalls.filter(({ r, rubric }) => {
+    const agent = val(r, rubric === 'booked' ? B.AGENT : N.AGENT);
+    const pLob  = normalizeLOB(val(r, rubric === 'booked' ? B.LOB : N.LOB));
+    return agent !== repName && pLob === lob;
+  });
+  const buckets  = repTrendMode === 'wow' ? lastNWeekBuckets(4)
+                 : repTrendMode === 'mom' ? lastNMonthBuckets(6)
+                 :                          qtdWeekBuckets();
+  const lobLabel = (lob && lob !== '—') ? `${lob} avg` : 'LOB avg';
+  charts['rep-trend'] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: buckets.map(b => b.label),
+      datasets: [
+        { label: repName,
+          data: buckets.map(b => avgScoreInBucket(repCalls, b)),
+          borderColor: GREEN, backgroundColor: GREEN + '22',
+          borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6,
+          tension: 0.3, spanGaps: true, fill: false },
+        { label: lobLabel,
+          data: buckets.map(b => avgScoreInBucket(lobPeers, b)),
+          borderColor: BLUE_INFO, backgroundColor: 'transparent',
+          borderDash: [5, 4], borderWidth: 2,
+          pointRadius: 3, pointHoverRadius: 5,
+          tension: 0.3, spanGaps: true, fill: false },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#888', font: { size: 12 } } },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.y !== null
+          ? `${ctx.dataset.label}: ${ctx.parsed.y}%`
+          : `${ctx.dataset.label}: —` } },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.08)' }, ticks: { color: '#888' } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.08)' },
+             ticks: { color: '#888', callback: v => v + '%' } },
+      },
+    },
+  });
+}
+function switchRepTrend(mode) {
+  repTrendMode = mode;
+  document.querySelectorAll('.trend-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  if (currentRep && currentRepLob) renderRepTrendChart(currentRep, currentRepLob);
+}
+
 function buildRepTab(bookedRows, nbRows) {
-  // Populate the selector
+  // Count calls per agent within the current period
+  const agentCounts = {};
+  bookedRows.forEach(r => { const a = val(r, B.AGENT); if (a) agentCounts[a] = (agentCounts[a]||0)+1; });
+  nbRows.forEach(r    => { const a = val(r, N.AGENT); if (a) agentCounts[a] = (agentCounts[a]||0)+1; });
   const allAgents = [...new Set([
     ...bookedRows.map(r => val(r, B.AGENT)),
     ...nbRows.map(r => val(r, N.AGENT)),
@@ -900,8 +1015,9 @@ function buildRepTab(bookedRows, nbRows) {
   const sel = el('rep-select');
   sel.innerHTML = '<option value="">— Select a rep —</option>';
   allAgents.forEach(agent => {
-    const opt = document.createElement('option');
-    opt.value = agent; opt.textContent = agent;
+    const opt   = document.createElement('option');
+    const count = agentCounts[agent] || 0;
+    opt.value = agent; opt.textContent = `${agent} (${count})`;
     if (agent === currentRep) opt.selected = true;
     sel.appendChild(opt);
   });
@@ -933,6 +1049,7 @@ function renderRepDetail(bookedRows, nbRows, repName) {
   const firstCall = allCalls[0];
   const lobRaw    = val(firstCall.r, firstCall.rubric === 'booked' ? B.LOB : N.LOB);
   const lob       = normalizeLOB(lobRaw) || lobRaw || '—';
+  currentRepLob   = lob;
 
   // Section averages
   const secRows = [];
@@ -1031,7 +1148,22 @@ function renderRepDetail(bookedRows, nbRows, repName) {
           </table>
         </div>
       </div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+        <h3 class="card-title" style="margin:0">Score Trend</h3>
+        <div>
+          <button class="trend-btn${repTrendMode==='wow'?' active':''}" data-mode="wow" onclick="switchRepTrend('wow')">Week over Week</button>
+          <button class="trend-btn${repTrendMode==='mom'?' active':''}" data-mode="mom" onclick="switchRepTrend('mom')">Month over Month</button>
+          <button class="trend-btn${repTrendMode==='qtd'?' active':''}" data-mode="qtd" onclick="switchRepTrend('qtd')">QTD</button>
+        </div>
+      </div>
+      <div style="position:relative;height:240px">
+        <canvas id="chart-rep-trend"></canvas>
+      </div>
     </div>`;
+  renderRepTrendChart(repName, lob);
 }
 
 // ════════════════════════════════════════════════════════════════
