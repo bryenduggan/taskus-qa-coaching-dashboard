@@ -37,7 +37,7 @@
           </g>
         </svg>
         <div>
-          <span class="logo-title">QA Intelligence Hub</span>
+          <span class="logo-title">TaskUs QA Hub</span>
           <span class="logo-sub">TaskUs SDR · Outbound Quality</span>
         </div>
       </div>
@@ -50,26 +50,30 @@
   </header>
 
   <!-- ══════════════════ TAB NAV ══════════════════ -->
-  <nav class="tab-nav">
-    <button class="tab-btn active" data-tab="overview">Overview</button>
-    <button class="tab-btn" data-tab="booked">Booked / LT</button>
-    <button class="tab-btn" data-tab="no-booking">No Booking</button>
-    <button class="tab-btn" data-tab="call-log">Call Log</button>
-    <button class="tab-btn" data-tab="lob">Executive (LOB)</button>
-    <button class="tab-btn" data-tab="manager">Manager View</button>
-    <button class="tab-btn" data-tab="rep">Rep Detail</button>
-    <button class="tab-btn" data-tab="reviewer">Reviewer</button>
-  </nav>
+  <div class="tab-nav-strip">
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="booked">Booked / LT</button>
+      <button class="tab-btn" data-tab="no-booking">No Booking</button>
+      <button class="tab-btn" data-tab="call-log">Call Log</button>
+      <button class="tab-btn" data-tab="lob">Executive (LOB)</button>
+      <button class="tab-btn" data-tab="manager">Manager View</button>
+      <button class="tab-btn" data-tab="rep">Rep Detail</button>
+      <button class="tab-btn" data-tab="reviewer">Reviewer</button>
+    </nav>
+  </div>
 
   <!-- ══════════════════ PERIOD FILTER ══════════════════ -->
-  <div id="period-filter" class="period-bar hidden">
-    <span class="period-label">Period:</span>
-    <button class="period-btn active" data-period="all"          onclick="switchPeriod('all')">All Time</button>
-    <button class="period-btn"        data-period="current-week" onclick="switchPeriod('current-week')">Current Week</button>
-    <button class="period-btn"        data-period="prev-week"    onclick="switchPeriod('prev-week')">Previous Week</button>
-    <button class="period-btn"        data-period="mtd"          onclick="switchPeriod('mtd')">Month to Date</button>
-    <button class="period-btn"        data-period="qtd"          onclick="switchPeriod('qtd')">Quarter to Date</button>
-    <span id="period-range-label" class="period-range-label"></span>
+  <div id="period-filter" class="period-bar-strip hidden">
+    <div class="period-bar">
+      <span class="period-label">Period:</span>
+      <button class="period-btn active" data-period="all"          onclick="switchPeriod('all')">All Time</button>
+      <button class="period-btn"        data-period="current-week" onclick="switchPeriod('current-week')">Current Week</button>
+      <button class="period-btn"        data-period="prev-week"    onclick="switchPeriod('prev-week')">Previous Week</button>
+      <button class="period-btn"        data-period="mtd"          onclick="switchPeriod('mtd')">Month to Date</button>
+      <button class="period-btn"        data-period="qtd"          onclick="switchPeriod('qtd')">Quarter to Date</button>
+      <span id="period-range-label" class="period-range-label"></span>
+    </div>
   </div>
 
   <!-- ══════════════════ MAIN ══════════════════ -->
