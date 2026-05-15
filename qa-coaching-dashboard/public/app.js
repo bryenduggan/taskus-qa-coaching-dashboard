@@ -1084,14 +1084,79 @@ function buildReviewer(bookedRows, nbRows) {
 //  CALL LOG TAB
 // ════════════════════════════════════════════════════════════════
 let activeAgentFilter = 'all';
+let clSortCol = 'date';
+let clSortDir = 'desc';
+let _clAllCalls = [];
+
+// Returns a sortable primitive for a given call + column key
+function clSortVal(call, key) {
+  const { r, rubric } = call;
+  switch (key) {
+    case 'agent':      return String(val(r, B.AGENT)     || '').toLowerCase();
+    case 'date':       return String(val(r, B.DATE)      || '');
+    case 'type':       return String(val(r, B.TYPE)      || '').toLowerCase();
+    case 'score':      return pct(r, B.OVERALL)                            ?? -1;
+    case 'opener':     return pct(r, rubric==='booked' ? B.OP_PCT : N.OP_PCT) ?? -1;
+    case 'disc':       return pct(r, rubric==='booked' ? B.DC_PCT : N.DC_PCT) ?? -1;
+    case 'pitch':      return pct(r, rubric==='booked' ? B.PT_PCT : N.OB_PCT) ?? -1;
+    case 'ns':         return rubric==='booked' ? (pct(r, B.NS_PCT) ?? -1) : -1;
+    case 'gn':         return rubric==='booked' ? (pct(r, B.GN_PCT) ?? -1) : -1;
+    case 'af':         return (rubric==='booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG)) ? 1 : 0;
+    case 'lob':        return String(normalizeLOB(val(r, rubric==='booked' ? B.LOB : N.LOB)) || '').toLowerCase();
+    case 'reviewer':   return String(val(r, rubric==='booked' ? B.REVIEWED_BY : N.REVIEWED_BY) || '').toLowerCase();
+    case 'dateScored': return String(val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED) || '');
+    case 'leadStatus': return String(val(r, rubric==='booked' ? B.LEAD_STATUS : N.LEAD_STATUS) || '').toLowerCase();
+    default: return '';
+  }
+}
+
+// Builds (or rebuilds) the call-log thead with sort indicators
+function buildClHead() {
+  const thead = el('cl-thead');
+  if (!thead) return;
+  const cols = [
+    { key: null,         label: '',              sortable: false, style: 'width:28px' },
+    { key: 'callId',     label: 'Call',          sortable: false },
+    { key: 'agent',      label: 'Agent',         sortable: true  },
+    { key: 'date',       label: 'Date',          sortable: true  },
+    { key: 'duration',   label: 'Duration',      sortable: false },
+    { key: 'type',       label: 'Type',          sortable: true  },
+    { key: 'score',      label: 'Score',         sortable: true  },
+    { key: 'opener',     label: 'Opener',        sortable: true  },
+    { key: 'disc',       label: 'Discovery',     sortable: true  },
+    { key: 'pitch',      label: 'Pitch / Obj.',  sortable: true  },
+    { key: 'ns',         label: 'Next Step',     sortable: true  },
+    { key: 'gn',         label: 'General',       sortable: true  },
+    { key: 'af',         label: 'AF',            sortable: true  },
+    { key: 'cp1',        label: 'Coaching P1',   sortable: false },
+    { key: 'lob',        label: 'LOB',           sortable: true  },
+    { key: 'reviewer',   label: 'Reviewed By',   sortable: true  },
+    { key: 'dateScored', label: 'Date Scored',   sortable: true  },
+    { key: 'leadStatus', label: 'Lead Status',   sortable: true  },
+  ];
+  thead.innerHTML = '<tr>' + cols.map(c => {
+    if (!c.sortable) return `<th${c.style ? ` style="${c.style}"` : ''}>${c.label}</th>`;
+    const active = clSortCol === c.key;
+    const arrow  = active ? (clSortDir === 'asc' ? '↑' : '↓') : '↕';
+    return `<th class="cl-th-sort${active ? ' cl-th-active' : ''}" onclick="clSort('${c.key}')">${c.label} <span style="opacity:${active ? 1 : 0.35};font-size:0.65em">${arrow}</span></th>`;
+  }).join('') + '</tr>';
+}
+
+// Called when a sortable column header is clicked
+function clSort(key) {
+  if (clSortCol === key) {
+    clSortDir = clSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    clSortCol = key;
+    clSortDir = 'asc';
+  }
+  buildClHead();
+  renderCallRows(_clAllCalls);
+}
 
 function buildCallLog(bookedRows, nbRows) {
   const allCalls = [...bookedRows.map(r => ({ r, rubric:'booked' })), ...nbRows.map(r => ({ r, rubric:'nb' }))];
-  allCalls.sort((a, b) => {
-    const da = val(a.r, B.DATE), db = val(b.r, B.DATE);
-    if (da !== db) return da > db ? -1 : 1;
-    return String(val(a.r, B.CALL_ID)).localeCompare(String(val(b.r, B.CALL_ID)));
-  });
+  // Sorting is handled by renderCallRows (default: date desc)
 
   const allScores = allCalls.map(c => pct(c.r, B.OVERALL)).filter(n=>n!==null);
   const teamAvg   = avg(allScores);
@@ -1120,13 +1185,24 @@ function buildCallLog(bookedRows, nbRows) {
     };
     fw.appendChild(chip);
   }
-  makeChip('All reps', 'all');
-  agents.forEach(a => makeChip(a, a));
+  // Count calls per agent for chip labels
+  const agentCounts = {};
+  allCalls.forEach(c => { const a = val(c.r, B.AGENT); if (a) agentCounts[a] = (agentCounts[a] || 0) + 1; });
+  makeChip(`All (${allCalls.length})`, 'all');
+  agents.forEach(a => makeChip(`${a} (${agentCounts[a] || 0})`, a));
+  _clAllCalls = allCalls;
+  buildClHead();
   renderCallRows(allCalls);
 }
 
 function renderCallRows(allCalls) {
-  const filtered = activeAgentFilter === 'all' ? allCalls : allCalls.filter(c => val(c.r, B.AGENT) === activeAgentFilter);
+  _clAllCalls = allCalls;
+  const unfiltered = activeAgentFilter === 'all' ? allCalls : allCalls.filter(c => val(c.r, B.AGENT) === activeAgentFilter);
+  const filtered = [...unfiltered].sort((a, b) => {
+    const av = clSortVal(a, clSortCol), bv = clSortVal(b, clSortCol);
+    const cmp = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+    return clSortDir === 'asc' ? cmp : -cmp;
+  });
   const tbody = el('cl-tbody');
   tbody.innerHTML = '';
   if (!filtered.length) {
