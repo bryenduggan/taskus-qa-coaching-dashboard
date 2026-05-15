@@ -36,20 +36,30 @@ app.get('/api/data', async (req, res) => {
     const auth = buildAuth();
     const sheets = google.sheets({ version: 'v4', auth });
 
-    const [bookedRes, noBookingRes] = await Promise.all([
+    const [bookedRes, noBookingRes, humanBookedRes, humanNBRes] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'Booked / LT!A1:AS',  // AS = Lead Status (col 44)
+        range: 'Booked / LT!A1:AO',
       }),
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'No Booking!A1:AJ',   // AJ = Lead Status (col 35)
+        range: 'No Booking!A1:AF',
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'QA Scoring Booked / LT!A1:AR',
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'QA Scoring No Booking!A1:AG',
       }),
     ]);
 
     res.json({
-      booked: bookedRes.data.values || [],
-      noBooking: noBookingRes.data.values || [],
+      booked:       bookedRes.data.values       || [],
+      noBooking:    noBookingRes.data.values     || [],
+      humanBooked:  humanBookedRes.data.values   || [],
+      humanNB:      humanNBRes.data.values       || [],
       fetchedAt: new Date().toISOString(),
     });
   } catch (err) {

@@ -183,6 +183,142 @@ function revioLink(callId) {
   </a>`;
 }
 
+// ── Human tab normalization ───────────────────────────────────
+// Human tabs have: A=Call ID (full URL), B=Agent, C=Date, D=Reviewer, E=Type, F=LOB, G=Overall%, H+= rubric items
+// We normalize them into the same row format as AI tabs so existing display logic works.
+
+function normalizeReviewer(raw) {
+  if (!raw) return 'Derek';
+  const s = String(raw).trim().toLowerCase();
+  if (s === 'dm' || s === 'derek') return 'Derek';
+  return raw.trim();
+}
+
+function extractRcId(callId) {
+  if (!callId) return '';
+  const s = String(callId).trim();
+  // Full URL: https://analytics.revenue.io/conversations/rc123...
+  const match = s.match(/\/(rc\w+)\s*$/i);
+  if (match) return match[1];
+  // Already an rc# ID
+  if (/^rc\d+/i.test(s)) return s;
+  return s;
+}
+
+function convertHumanScore(v) {
+  // Human tabs store scores as "75%" strings
+  if (v === undefined || v === null || v === '') return '';
+  const s = String(v).trim();
+  if (s.endsWith('%')) return String(Math.round(parseFloat(s)));
+  return s; // Already a number string
+}
+
+// Normalize a QA Scoring No Booking row into AI No Booking row format (N indices)
+function normalizeHumanNBRow(h) {
+  const row = new Array(36).fill('');
+  row[N.CALL_ID]        = extractRcId(h[0]);
+  row[N.AGENT]          = h[1] || '';
+  row[N.DATE]           = h[2] || '';
+  // [3] DURATION — not in human tab, leave empty
+  row[N.TYPE]           = h[4] || '';
+  row[N.OVERALL]        = convertHumanScore(h[6]);
+  row[N.OP_HOOK]        = h[7] || '';
+  row[N.OP_PURPOSE]     = h[8] || '';
+  row[N.OP_CONTEXT]     = h[9] || '';
+  row[N.OP_RIGHT_PERSON]= h[10] || '';
+  row[N.OP_PCT]         = convertHumanScore(h[11]);
+  row[N.DC_PROC]        = h[12] || '';
+  row[N.DC_PAIN]        = h[13] || '';
+  row[N.DC_POSITION]    = h[14] || '';
+  row[N.DC_PCT]         = convertHumanScore(h[15]);
+  row[N.OB_REASON]      = h[16] || '';
+  row[N.OB_VALUE]       = h[17] || '';
+  row[N.OB_PIVOT]       = h[18] || '';
+  row[N.OB_CLARIFY]     = h[19] || '';
+  row[N.OB_PACING]      = h[20] || '';
+  row[N.OB_RESPECT]     = h[21] || '';
+  row[N.OB_PCT]         = convertHumanScore(h[22]);
+  row[N.AF_RUDE]        = h[23] || '';
+  row[N.AF_MISINFO]     = h[24] || '';
+  row[N.AF_LEGAL]       = h[25] || '';
+  row[N.AF_TRIG]        = h[26] || '';
+  row[N.DIAG1]          = h[27] || '';
+  row[N.DIAG2]          = h[28] || '';
+  row[N.CP1]            = h[29] || '';
+  row[N.CP2]            = h[30] || '';
+  row[N.CP3]            = h[31] || '';
+  row[N.NOTES]          = h[32] || '';
+  row[N.LOB]            = h[5]  || '';   // LOB is at col F in human tab
+  row[N.REVIEWED_BY]    = normalizeReviewer(h[3]);
+  row[N.DATE_SCORED]    = h[2]  || '';   // use call date as DateScored
+  row[N.LEAD_STATUS]    = '';
+  return row;
+}
+
+// Normalize a QA Scoring Booked/LT row into AI Booked/LT row format (B indices)
+function normalizeHumanBookedRow(h) {
+  const row = new Array(45).fill('');
+  row[B.CALL_ID]         = extractRcId(h[0]);
+  row[B.AGENT]           = h[1]  || '';
+  row[B.DATE]            = h[2]  || '';
+  // [3] DURATION — not in human tab
+  row[B.TYPE]            = h[4]  || '';
+  row[B.OVERALL]         = convertHumanScore(h[6]);
+  // Opener items: human H-L = indices 7-12 → AI 6-11
+  row[B.OP_INTRO]        = h[7]  || '';
+  row[B.OP_PURPOSE]      = h[8]  || '';
+  row[B.OP_CONTEXT]      = h[9]  || '';
+  row[B.OP_INDUSTRY]     = h[10] || '';
+  row[B.OP_COMPANY_SIZE] = h[11] || '';
+  row[B.OP_PCT]          = convertHumanScore(h[12]);
+  // Discovery items: human M-R = indices 13-18 → AI 12-17
+  row[B.DC_PROC]         = h[13] || '';
+  row[B.DC_PAIN]         = h[14] || '';
+  row[B.DC_ECON]         = h[15] || '';
+  row[B.DC_IMPLICIT]     = h[16] || '';
+  row[B.DC_URG]          = h[17] || '';
+  row[B.DC_PCT]          = convertHumanScore(h[18]);
+  // Pitch items: human S-U = indices 19-21 → AI 18-20
+  row[B.PT_RESTATE]      = h[19] || '';
+  row[B.PT_PRESENT]      = h[20] || '';
+  row[B.PT_PCT]          = convertHumanScore(h[21]);
+  // Next Step items: human V-AB = indices 22-28 → AI 21-27
+  row[B.NS_EST]          = h[22] || '';
+  row[B.NS_CONFIRM]      = h[23] || '';
+  row[B.NS_RECAP]        = h[24] || '';
+  row[B.NS_ADDL]         = h[25] || '';
+  row[B.NS_CLOSE_LT]     = h[26] || '';
+  row[B.NS_CLOSE_BK]     = h[27] || '';
+  row[B.NS_PCT]          = convertHumanScore(h[28]);
+  // General items: human AC-AF = indices 29-32 → AI 28-31
+  row[B.GN_OBJ]          = h[29] || '';
+  row[B.GN_COMM]         = h[30] || '';
+  row[B.GN_ACK]          = h[31] || '';
+  row[B.GN_PCT]          = convertHumanScore(h[32]);
+  // Autofails: human AG-AJ = indices 33-36 → AI 32-35
+  row[B.AF_MISINFO]      = h[33] || '';
+  row[B.AF_RUDE]         = h[34] || '';
+  row[B.AF_PROF]         = h[35] || '';
+  row[B.AF_PII]          = h[36] || '';
+  row[B.AF_TRIG]         = h[37] || '';
+  // Coaching priorities: human AK-AM = indices 38-40 → AI 37-39
+  row[B.CP1]             = h[38] || '';
+  row[B.CP2]             = h[39] || '';
+  row[B.CP3]             = h[40] || '';
+  row[B.NOTES]           = h[41] || '';
+  row[B.LOB]             = h[5]  || '';  // LOB is at col F in human tab
+  row[B.REVIEWED_BY]     = normalizeReviewer(h[3]);
+  row[B.DATE_SCORED]     = h[2]  || '';  // use call date as DateScored
+  row[B.LEAD_STATUS]     = '';
+  return row;
+}
+
+function parseHumanRows(rawRows) {
+  if (!rawRows || rawRows.length < 2) return [];
+  // Skip header row (row 0), filter rows that have a non-empty Call ID
+  return rawRows.slice(1).filter(r => r && r[0] && String(r[0]).trim() !== '');
+}
+
 // ── Lead Status badge (color-coded by Salesforce status value) ─
 function leadStatusBadge(statusRaw) {
   if (!statusRaw || statusRaw === '—' || statusRaw === '') return `<span style="color:var(--text-dim)">—</span>`;
@@ -1190,6 +1326,25 @@ async function loadData() {
 
     const bookedRows = parseRows(data.booked);
     const nbRows     = parseRows(data.noBooking);
+
+    // Merge human-reviewed rows from QA Scoring tabs
+    const humanBookedNorm = parseHumanRows(data.humanBooked || []).map(normalizeHumanBookedRow);
+    const humanNBNorm     = parseHumanRows(data.humanNB     || []).map(normalizeHumanNBRow);
+
+    // De-duplicate: if a call ID already exists in AI tabs, skip (AI score takes precedence)
+    const aiBookedIds = new Set(bookedRows.map(r => val(r, B.CALL_ID)));
+    const aiNBIds     = new Set(nbRows.map(r => val(r, N.CALL_ID)));
+    const newHumanBooked = humanBookedNorm.filter(r => {
+      const id = val(r, B.CALL_ID);
+      return id && !aiBookedIds.has(id);
+    });
+    const newHumanNB = humanNBNorm.filter(r => {
+      const id = val(r, N.CALL_ID);
+      return id && !aiNBIds.has(id);
+    });
+
+    bookedRows.push(...newHumanBooked);
+    nbRows.push(...newHumanNB);
 
     if (data.fetchedAt) {
       const d = new Date(data.fetchedAt);
