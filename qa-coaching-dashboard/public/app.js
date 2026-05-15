@@ -361,6 +361,24 @@ function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete chart
 // ── Period filter ─────────────────────────────────────────────
 let currentPeriod = 'all';
 
+// ── UI state persistence (survive refresh) ────────────────────
+const UI_STATE_KEY = 'qa_ui_state';
+function saveUIState() {
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'overview';
+  try {
+    localStorage.setItem(UI_STATE_KEY, JSON.stringify({
+      tab:         activeTab,
+      period:      currentPeriod,
+      agentFilter: activeAgentFilter,
+      sortCol:     clSortCol,
+      sortDir:     clSortDir,
+    }));
+  } catch (_) {}
+}
+function loadUIState() {
+  try { return JSON.parse(localStorage.getItem(UI_STATE_KEY) || '{}'); } catch (_) { return {}; }
+}
+
 function parseDateStr(s) {
   if (!s) return null;
   s = String(s).trim();
@@ -439,6 +457,7 @@ function switchPeriod(p) {
     const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'overview';
     showTab(activeTab);
   }
+  saveUIState();
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1152,6 +1171,7 @@ function clSort(key) {
   }
   buildClHead();
   renderCallRows(_clAllCalls);
+  saveUIState();
 }
 
 function buildCallLog(bookedRows, nbRows) {
@@ -1182,6 +1202,7 @@ function buildCallLog(bookedRows, nbRows) {
       fw.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       renderCallRows(allCalls);
+      saveUIState();
     };
     fw.appendChild(chip);
   }
@@ -1344,7 +1365,7 @@ function showTab(tabId) {
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => showTab(btn.dataset.tab));
+  btn.addEventListener('click', () => { showTab(btn.dataset.tab); saveUIState(); });
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -1397,9 +1418,29 @@ async function loadData() {
     dataCache = { bookedRows, nbRows };
     el('loading').classList.add('hidden');
     el('period-filter').classList.remove('hidden');
-    buildOverview(bookedRows, nbRows);
+
+    // Restore UI state from before the refresh
+    const saved = loadUIState();
+    if (saved.agentFilter) activeAgentFilter = saved.agentFilter;
+    if (saved.sortCol)     { clSortCol = saved.sortCol; clSortDir = saved.sortDir || 'desc'; }
+    if (saved.period && saved.period !== 'all') {
+      currentPeriod = saved.period;
+      document.querySelectorAll('.period-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.period === currentPeriod));
+      const lbl = el('period-range-label');
+      if (lbl) {
+        const bounds = getPeriodBounds(currentPeriod);
+        if (bounds) {
+          const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          lbl.textContent = `${fmt(bounds.start)} – ${fmt(bounds.end)}`;
+        }
+      }
+    }
+
+    const { bookedRows: initBooked, nbRows: initNB } = getFilteredData();
+    buildOverview(initBooked, initNB);
     builtTabs.add('overview');
-    showTab('overview');
+    showTab(saved.tab || 'overview');
   } catch (err) {
     el('loading').classList.add('hidden');
     el('error-state').classList.remove('hidden');
