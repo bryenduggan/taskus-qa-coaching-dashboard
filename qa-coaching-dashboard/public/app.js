@@ -1248,6 +1248,7 @@ function showTab(tabId) {
   const { bookedRows, nbRows } = getFilteredData();
 
   const builders = {
+    'overview':   () => buildOverview(bookedRows, nbRows),
     'booked':     () => buildBooked(bookedRows),
     'no-booking': () => buildNoBooking(nbRows),
     'call-log':   () => buildCallLog(bookedRows, nbRows),

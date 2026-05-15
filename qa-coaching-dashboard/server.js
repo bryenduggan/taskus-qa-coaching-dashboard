@@ -39,11 +39,11 @@ app.get('/api/data', async (req, res) => {
     const [bookedRes, noBookingRes, humanBookedRes, humanNBRes] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'Booked / LT!A1:AO',
+        range: 'Booked / LT!A1:AS',
       }),
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'No Booking!A1:AF',
+        range: 'No Booking!A1:AJ',
       }),
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
