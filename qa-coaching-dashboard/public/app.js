@@ -1147,20 +1147,19 @@ function renderRepDetail(bookedRows, nbRows, repName) {
             }).join('')}</tbody>
           </table>
         </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-        <h3 class="card-title" style="margin:0">Score Trend</h3>
-        <div>
-          <button class="trend-btn${repTrendMode==='wow'?' active':''}" data-mode="wow" onclick="switchRepTrend('wow')">Week over Week</button>
-          <button class="trend-btn${repTrendMode==='mom'?' active':''}" data-mode="mom" onclick="switchRepTrend('mom')">Month over Month</button>
-          <button class="trend-btn${repTrendMode==='qtd'?' active':''}" data-mode="qtd" onclick="switchRepTrend('qtd')">QTD</button>
+        <div class="card" style="margin-top:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+            <h3 class="card-title" style="margin:0">Score Trend</h3>
+            <div>
+              <button class="trend-btn${repTrendMode==='wow'?' active':''}" data-mode="wow" onclick="switchRepTrend('wow')">Week over Week</button>
+              <button class="trend-btn${repTrendMode==='mom'?' active':''}" data-mode="mom" onclick="switchRepTrend('mom')">Month over Month</button>
+              <button class="trend-btn${repTrendMode==='qtd'?' active':''}" data-mode="qtd" onclick="switchRepTrend('qtd')">QTD</button>
+            </div>
+          </div>
+          <div style="position:relative;height:240px">
+            <canvas id="chart-rep-trend"></canvas>
+          </div>
         </div>
-      </div>
-      <div style="position:relative;height:240px">
-        <canvas id="chart-rep-trend"></canvas>
       </div>
     </div>`;
   renderRepTrendChart(repName, lob);
