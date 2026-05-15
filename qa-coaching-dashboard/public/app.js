@@ -1069,13 +1069,21 @@ function renderRepDetail(bookedRows, nbRows, repName) {
      });
   }
 
-  // Coaching priorities
+  // Coaching priorities (track call IDs so we can link each one)
   const cpAll = allCalls.flatMap(c => {
     const r = c.r, rb = c.rubric;
-    return [rb==='booked'?val(r,B.CP1):val(r,N.CP1), rb==='booked'?val(r,B.CP2):val(r,N.CP2), rb==='booked'?val(r,B.CP3):val(r,N.CP3)].filter(v => v && v !== '—');
+    const callId = val(r, B.CALL_ID);
+    return [rb==='booked'?val(r,B.CP1):val(r,N.CP1), rb==='booked'?val(r,B.CP2):val(r,N.CP2), rb==='booked'?val(r,B.CP3):val(r,N.CP3)]
+      .filter(v => v && v !== '—')
+      .map(text => ({ text, callId }));
   });
-  const cpCounts = {};
-  cpAll.forEach(cp => { cpCounts[cp] = (cpCounts[cp]||0)+1; });
+  const cpCounts  = {};
+  const cpCallIds = {};
+  cpAll.forEach(({ text, callId }) => {
+    cpCounts[text] = (cpCounts[text] || 0) + 1;
+    if (!cpCallIds[text]) cpCallIds[text] = [];
+    if (callId && !cpCallIds[text].includes(callId)) cpCallIds[text].push(callId);
+  });
   const topCPs = Object.entries(cpCounts).sort((a,b) => b[1]-a[1]).slice(0,5);
 
   // Objection types
@@ -1107,10 +1115,16 @@ function renderRepDetail(bookedRows, nbRows, repName) {
         ${topCPs.length ? `<div class="card">
           <h3 class="card-title">Top Coaching Priorities</h3>
           <div class="cp-priority-list">
-            ${topCPs.map(([cp, cnt]) => `<div class="cp-priority-item">
-              <span class="cp-badge">${esc(cp)}</span>
-              <span class="cp-count">${cnt}×</span>
-            </div>`).join('')}
+            ${topCPs.map(([cp, cnt]) => {
+              const ids   = cpCallIds[cp] || [];
+              const links = ids.map(id => `<a class="cp-call-link" href="${REVENUE_IO_BASE}${id}" target="_blank" rel="noopener" title="Open call ${esc(id)} in Rev.io">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M7 1h4v4M11 1L5 7M4 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>`).join('');
+              return `<div class="cp-priority-item">
+                <span class="cp-badge">${esc(cp)}</span>
+                <span class="cp-right">${links}<span class="cp-count">${cnt}×</span></span>
+              </div>`;
+            }).join('')}
           </div>
         </div>` : ''}
         ${topObj ? `<div class="card">

@@ -1033,12 +1033,27 @@ canvas { max-width: 100%; }
   justify-content: space-between;
   gap: 10px;
 }
+.cp-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
 .cp-count {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--amber);
-  flex-shrink: 0;
 }
+.cp-call-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.6;
+  text-decoration: none;
+  transition: opacity .15s, color .15s;
+  line-height: 1;
+}
+.cp-call-link:hover { opacity: 1; color: var(--green); }
 
 /* ═══════════════════════════════════════════════════════
    REVIEWER TAB — reuses .agent-table from Booked tab
