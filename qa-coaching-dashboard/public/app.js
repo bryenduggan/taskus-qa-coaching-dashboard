@@ -1368,24 +1368,13 @@ async function loadData() {
     const bookedRows = parseRows(data.booked);
     const nbRows     = parseRows(data.noBooking);
 
-    // Merge human-reviewed rows from QA Scoring tabs
+    // Merge human-reviewed rows from QA Scoring tabs — no deduplication,
+    // same call can appear twice (once AI-scored, once human-scored)
     const humanBookedNorm = parseHumanRows(data.humanBooked || []).map(normalizeHumanBookedRow);
     const humanNBNorm     = parseHumanRows(data.humanNB     || []).map(normalizeHumanNBRow);
 
-    // De-duplicate: if a call ID already exists in AI tabs, skip (AI score takes precedence)
-    const aiBookedIds = new Set(bookedRows.map(r => val(r, B.CALL_ID)));
-    const aiNBIds     = new Set(nbRows.map(r => val(r, N.CALL_ID)));
-    const newHumanBooked = humanBookedNorm.filter(r => {
-      const id = val(r, B.CALL_ID);
-      return id && !aiBookedIds.has(id);
-    });
-    const newHumanNB = humanNBNorm.filter(r => {
-      const id = val(r, N.CALL_ID);
-      return id && !aiNBIds.has(id);
-    });
-
-    bookedRows.push(...newHumanBooked);
-    nbRows.push(...newHumanNB);
+    bookedRows.push(...humanBookedNorm.filter(r => val(r, B.CALL_ID)));
+    nbRows.push(...humanNBNorm.filter(r => val(r, N.CALL_ID)));
 
     if (data.fetchedAt) {
       const d = new Date(data.fetchedAt);
