@@ -1201,3 +1201,88 @@ canvas { max-width: 100%; }
   margin-left: 6px;
   font-style: italic;
 }
+
+/* ── Objection accordion (Other objections) ──────────────────── */
+.obj-accordion {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.obj-accordion-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background 0.15s, color 0.15s;
+}
+.obj-accordion-btn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.obj-accordion-chevron {
+  font-size: 1rem;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.obj-accordion.open .obj-accordion-chevron {
+  transform: rotate(90deg);
+}
+.obj-accordion-body {
+  display: none;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+.obj-accordion.open .obj-accordion-body {
+  display: block;
+}
+.obj-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.obj-bar-row:last-child { margin-bottom: 0; }
+.obj-bar-label {
+  flex: 0 0 180px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.obj-bar-track {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 18px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: visible;
+  position: relative;
+}
+.obj-bar-fill {
+  height: 100%;
+  background: var(--blue-info);
+  border-radius: 4px;
+  opacity: 0.65;
+  transition: width 0.3s ease;
+  min-width: 4px;
+}
+.obj-bar-count {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}

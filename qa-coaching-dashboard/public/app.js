@@ -692,14 +692,60 @@ function buildNoBooking(nbRows) {
   if (nbOpenerBars) nbOpenerBars.closest('.card') && (nbOpenerBars.closest('.card').style.display = 'none');
 
   destroyChart('objections');
-  const objLabels = Object.keys(objCounts), objValues = Object.values(objCounts);
-  const palette   = [GREEN, AMBER, RED, BLUE_INFO, '#a78bfa', '#f472b6'];
-  if (objLabels.length) {
+
+  // Only these objection types appear in the doughnut chart
+  const PRIORITY_OBJECTIONS = [
+    'Busy',
+    'Not Interested',
+    'Too Expensive',
+    'Doesnt want to talk to a PE',
+    'No longer in business',
+    'Hung up on UFA',
+    'Bad contact info(Not decision maker)',
+    'Hung up',
+  ];
+
+  const priorityObj = {}, otherObj = {};
+  Object.entries(objCounts).forEach(([label, count]) => {
+    if (PRIORITY_OBJECTIONS.includes(label)) priorityObj[label] = count;
+    else otherObj[label] = count;
+  });
+
+  const pieLabels = Object.keys(priorityObj), pieValues = Object.values(priorityObj);
+  const palette   = [GREEN, AMBER, RED, BLUE_INFO, '#a78bfa', '#f472b6', '#fb923c', '#38bdf8'];
+  if (pieLabels.length) {
     charts['objections'] = new Chart(el('chart-objections'), {
       type: 'doughnut',
-      data: { labels: objLabels, datasets: [{ data: objValues, backgroundColor: objLabels.map((_,i) => palette[i%palette.length]), borderWidth: 2, borderColor: '#232b2f' }] },
+      data: { labels: pieLabels, datasets: [{ data: pieValues, backgroundColor: pieLabels.map((_,i) => palette[i%palette.length]), borderWidth: 2, borderColor: '#232b2f' }] },
       options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { padding: 12, font: { size: 11 } } } } },
     });
+  }
+
+  // Accordion — all objections not in the priority list
+  const acc = el('obj-other-accordion');
+  if (acc) {
+    const otherEntries = Object.entries(otherObj).sort((a, b) => b[1] - a[1]);
+    if (otherEntries.length) {
+      const maxVal = otherEntries[0][1];
+      acc.innerHTML = `<div class="obj-accordion">
+        <button class="obj-accordion-btn" onclick="this.closest('.obj-accordion').classList.toggle('open')">
+          <span>Other objections (${otherEntries.length} types)</span>
+          <span class="obj-accordion-chevron">›</span>
+        </button>
+        <div class="obj-accordion-body">
+          ${otherEntries.map(([label, count]) => `
+            <div class="obj-bar-row">
+              <div class="obj-bar-label" title="${esc(label)}">${esc(label)}</div>
+              <div class="obj-bar-track">
+                <div class="obj-bar-fill" style="width:${Math.round(count / maxVal * 100)}%"></div>
+                <span class="obj-bar-count">${count}</span>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    } else {
+      acc.innerHTML = '';
+    }
   }
 
   const agentMap = {};
