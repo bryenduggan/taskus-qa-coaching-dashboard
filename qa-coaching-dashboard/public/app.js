@@ -29,6 +29,7 @@ const B = {
   GN_OBJ:28, GN_COMM:29, GN_ACK:30, GN_PCT:31,
   AF_MISINFO:32, AF_RUDE:33, AF_PROF:34, AF_PII:35, AF_TRIG:36,
   CP1:37, CP2:38, CP3:39, NOTES:40, LOB:41, REVIEWED_BY:42, DATE_SCORED:43, LEAD_STATUS:44,
+  ACCOUNT_NAME:45,
 };
 
 // ── Column indices — No Booking  (A=0 … AJ=35) ───────────────
@@ -40,6 +41,7 @@ const N = {
   AF_RUDE:22, AF_MISINFO:23, AF_LEGAL:24, AF_TRIG:25,
   DIAG1:26, DIAG2:27,
   CP1:28, CP2:29, CP3:30, NOTES:31, LOB:32, REVIEWED_BY:33, DATE_SCORED:34, LEAD_STATUS:35,
+  ACCOUNT_NAME:36,
 };
 
 // ── Manager → Rep mapping ─────────────────────────────────────
@@ -393,6 +395,20 @@ function parseDateStr(s) {
     return new Date(y, m - 1, d);
   }
   return null;
+}
+
+// Format any date string to MM/DD/YYYY for display
+function formatDate(s) {
+  if (!s) return '—';
+  s = String(s).trim();
+  // YYYY-MM-DD (how DateScored is stored) → MM/DD/YYYY
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-');
+    return `${m}/${d}/${y}`;
+  }
+  // Already MM/DD/YYYY or similar
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+  return s;
 }
 
 function inPeriod(dateStr, { start, end }) {
@@ -1272,8 +1288,9 @@ function clSortVal(call, key) {
     case 'af':         return (rubric==='booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG)) ? 1 : 0;
     case 'lob':        return String(normalizeLOB(val(r, rubric==='booked' ? B.LOB : N.LOB)) || '').toLowerCase();
     case 'reviewer':   return String(val(r, rubric==='booked' ? B.REVIEWED_BY : N.REVIEWED_BY) || '').toLowerCase();
-    case 'dateScored': return String(val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED) || '');
-    case 'leadStatus': return String(val(r, rubric==='booked' ? B.LEAD_STATUS : N.LEAD_STATUS) || '').toLowerCase();
+    case 'dateScored':   return String(val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED) || '');
+    case 'leadStatus':   return String(val(r, rubric==='booked' ? B.LEAD_STATUS : N.LEAD_STATUS) || '').toLowerCase();
+    case 'accountName':  return String(val(r, rubric==='booked' ? B.ACCOUNT_NAME : N.ACCOUNT_NAME) || '').toLowerCase();
     default: return '';
   }
 }
@@ -1283,24 +1300,25 @@ function buildClHead() {
   const thead = el('cl-thead');
   if (!thead) return;
   const cols = [
-    { key: null,         label: '',              sortable: false, style: 'width:28px' },
-    { key: 'callId',     label: 'Call',          sortable: false },
-    { key: 'agent',      label: 'Agent',         sortable: true  },
-    { key: 'date',       label: 'Date',          sortable: true  },
-    { key: 'duration',   label: 'Duration',      sortable: false },
-    { key: 'type',       label: 'Type',          sortable: true  },
-    { key: 'score',      label: 'Score',         sortable: true  },
-    { key: 'opener',     label: 'Opener',        sortable: true  },
-    { key: 'disc',       label: 'Discovery',     sortable: true  },
-    { key: 'pitch',      label: 'Pitch / Obj.',  sortable: true  },
-    { key: 'ns',         label: 'Next Step',     sortable: true  },
-    { key: 'gn',         label: 'General',       sortable: true  },
-    { key: 'af',         label: 'AF',            sortable: true  },
-    { key: 'cp1',        label: 'Coaching P1',   sortable: false },
-    { key: 'lob',        label: 'LOB',           sortable: true  },
-    { key: 'reviewer',   label: 'Reviewed By',   sortable: true  },
-    { key: 'dateScored', label: 'Date Scored',   sortable: true  },
-    { key: 'leadStatus', label: 'Lead Status',   sortable: true  },
+    { key: null,          label: '',              sortable: false, style: 'width:28px' },
+    { key: 'callId',      label: 'Call',          sortable: false },
+    { key: 'date',        label: 'Call Date',     sortable: true  },
+    { key: 'dateScored',  label: 'Date Scored',   sortable: true  },
+    { key: 'agent',       label: 'Agent',         sortable: true  },
+    { key: 'duration',    label: 'Duration',      sortable: false },
+    { key: 'type',        label: 'Type',          sortable: true  },
+    { key: 'score',       label: 'Score',         sortable: true  },
+    { key: 'opener',      label: 'Opener',        sortable: true  },
+    { key: 'disc',        label: 'Discovery',     sortable: true  },
+    { key: 'pitch',       label: 'Pitch / Obj.',  sortable: true  },
+    { key: 'ns',          label: 'Next Step',     sortable: true  },
+    { key: 'gn',          label: 'General',       sortable: true  },
+    { key: 'af',          label: 'AF',            sortable: true  },
+    { key: 'cp1',         label: 'Coaching P1',   sortable: false },
+    { key: 'lob',         label: 'LOB',           sortable: true  },
+    { key: 'accountName', label: 'Account',       sortable: true  },
+    { key: 'reviewer',    label: 'Reviewed By',   sortable: true  },
+    { key: 'leadStatus',  label: 'Lead Status',   sortable: true  },
   ];
   thead.innerHTML = '<tr>' + cols.map(c => {
     if (!c.sortable) return `<th${c.style ? ` style="${c.style}"` : ''}>${c.label}</th>`;
@@ -1376,32 +1394,33 @@ function renderCallRows(allCalls) {
   const tbody = el('cl-tbody');
   tbody.innerHTML = '';
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="18" class="cl-empty">No calls match the current filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="20" class="cl-empty">No calls match the current filter.</td></tr>`;
     el('cl-meta').textContent = '';
     return;
   }
   filtered.forEach((call, idx) => {
     const { r, rubric } = call;
     const rowId = `cl-row-${idx}`, detailId = `cl-det-${idx}`;
-    const callId  = val(r, B.CALL_ID);
-    const agent   = val(r, B.AGENT);
-    const date    = val(r, B.DATE);
-    const dur     = val(r, B.DURATION);
-    const type    = val(r, B.TYPE);
-    const overall = pct(r, B.OVERALL);
-    const cls     = overall !== null ? scoreClass(overall) : 'amber';
-    const opPct   = pct(r, rubric==='booked' ? B.OP_PCT : N.OP_PCT);
-    const dcPct   = pct(r, rubric==='booked' ? B.DC_PCT : N.DC_PCT);
-    const ptPct   = pct(r, rubric==='booked' ? B.PT_PCT : N.OB_PCT);
-    const nsPct   = rubric === 'booked' ? pct(r, B.NS_PCT) : null;
-    const gnPct   = rubric === 'booked' ? pct(r, B.GN_PCT) : null;
-    const afTrig  = rubric === 'booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG);
-    const cp1     = rubric === 'booked' ? val(r, B.CP1) : val(r, N.CP1);
-    const lobRaw     = val(r, rubric==='booked' ? B.LOB : N.LOB);
-    const lob        = normalizeLOB(lobRaw) || lobRaw;
-    const reviewer   = val(r, rubric==='booked' ? B.REVIEWED_BY : N.REVIEWED_BY);
-    const dateScored = val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED);
-    const leadStatus = val(r, rubric==='booked' ? B.LEAD_STATUS : N.LEAD_STATUS);
+    const callId      = val(r, B.CALL_ID);
+    const agent       = val(r, B.AGENT);
+    const date        = val(r, B.DATE);
+    const dur         = val(r, B.DURATION);
+    const type        = val(r, B.TYPE);
+    const overall     = pct(r, B.OVERALL);
+    const cls         = overall !== null ? scoreClass(overall) : 'amber';
+    const opPct       = pct(r, rubric==='booked' ? B.OP_PCT : N.OP_PCT);
+    const dcPct       = pct(r, rubric==='booked' ? B.DC_PCT : N.DC_PCT);
+    const ptPct       = pct(r, rubric==='booked' ? B.PT_PCT : N.OB_PCT);
+    const nsPct       = rubric === 'booked' ? pct(r, B.NS_PCT) : null;
+    const gnPct       = rubric === 'booked' ? pct(r, B.GN_PCT) : null;
+    const afTrig      = rubric === 'booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG);
+    const cp1         = rubric === 'booked' ? val(r, B.CP1) : val(r, N.CP1);
+    const lobRaw      = val(r, rubric==='booked' ? B.LOB : N.LOB);
+    const lob         = normalizeLOB(lobRaw) || lobRaw;
+    const reviewer    = val(r, rubric==='booked' ? B.REVIEWED_BY : N.REVIEWED_BY);
+    const dateScored  = val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED);
+    const leadStatus  = val(r, rubric==='booked' ? B.LEAD_STATUS : N.LEAD_STATUS);
+    const accountName = val(r, rubric==='booked' ? B.ACCOUNT_NAME : N.ACCOUNT_NAME);
     function pc(v) { return v===null ? `<td style="color:var(--text-dim)">—</td>` : `<td style="color:${scoreColor(v)};font-weight:600">${v}%</td>`; }
 
     const dataRow = document.createElement('tr');
@@ -1409,8 +1428,9 @@ function renderCallRows(allCalls) {
     dataRow.innerHTML = `
       <td><button class="expand-btn" data-target="${detailId}" data-row="${rowId}" aria-expanded="false">▶</button></td>
       <td>${revioLink(callId)}</td>
+      <td style="color:var(--text-muted);white-space:nowrap">${esc(formatDate(date))}</td>
+      <td style="color:var(--text-muted);font-size:0.6875rem;white-space:nowrap">${esc(formatDate(dateScored))}</td>
       <td><button class="rep-link-btn" onclick="drillRep('${esc(agent)}')">${esc(agent)}</button></td>
-      <td style="color:var(--text-muted)">${esc(date)}</td>
       <td style="color:var(--text-muted)">${esc(dur)}</td>
       <td>${type?`<span style="font-size:0.6875rem;padding:2px 7px;border-radius:99px;background:${type.toLowerCase().includes('book')?'rgba(138,204,51,0.1)':'rgba(45,122,185,0.1)'};color:${type.toLowerCase().includes('book')?GREEN:BLUE_INFO}">${esc(type)}</span>`:'—'}</td>
       <td><span class="score-pill ${cls}">${overall!==null?overall+'%':'—'}</span></td>
@@ -1418,13 +1438,13 @@ function renderCallRows(allCalls) {
       <td style="color:${afTrig?RED:'var(--text-dim)'}">${afTrig?'⚠️ Yes':'—'}</td>
       <td style="color:var(--text-muted);font-size:0.6875rem;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(cp1)}">${esc(cp1)||'—'}</td>
       <td>${lob?`<span class="lob-badge lob-${lob.toLowerCase()}">${esc(lob)}</span>`:`<span style="color:var(--text-dim)">—</span>`}</td>
+      <td style="color:var(--text-muted);font-size:0.6875rem;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(accountName)}">${esc(accountName)||'—'}</td>
       <td style="color:var(--text-muted);font-size:0.6875rem">${esc(reviewer)||'—'}</td>
-      <td style="color:var(--text-muted);font-size:0.6875rem;white-space:nowrap">${esc(dateScored)||'—'}</td>
       <td>${leadStatusBadge(leadStatus)}</td>`;
 
     const detailRow = document.createElement('tr');
     detailRow.id = detailId; detailRow.style.display = 'none';
-    detailRow.innerHTML = `<td colspan="18" class="cl-detail-cell">${buildDetailHTML(r, rubric)}</td>`;
+    detailRow.innerHTML = `<td colspan="20" class="cl-detail-cell">${buildDetailHTML(r, rubric)}</td>`;
     tbody.appendChild(dataRow); tbody.appendChild(detailRow);
   });
 
@@ -1557,8 +1577,12 @@ async function loadData() {
       ...nbRows.map(r => val(r, N.DATE_SCORED)),
     ].filter(Boolean);
     if (allDateScored.length) {
-      // Sort MM/DD/YYYY strings by converting to sortable YYYY-MM-DD
-      const toSortable = d => { const [m,day,y] = d.split('/'); return `${y}-${m}-${day}`; };
+      // Sort date strings (handles both YYYY-MM-DD and MM/DD/YYYY) to sortable YYYY-MM-DD
+      const toSortable = d => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+        const [m,day,y] = d.split('/');
+        return `${y}-${(m||'').padStart(2,'0')}-${(day||'').padStart(2,'0')}`;
+      };
       const latest = allDateScored.sort((a,b) => toSortable(b).localeCompare(toSortable(a)))[0];
       const lastScoredEl = el('last-scored');
       if (lastScoredEl) lastScoredEl.textContent = `Last scored: ${latest}`;
