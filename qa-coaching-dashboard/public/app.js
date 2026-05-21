@@ -78,6 +78,14 @@ function parseRows(rawRows) {
   return rawRows.slice(1).filter(r => r && r[0] && String(r[0]).trim() !== '');
 }
 
+// ── Date normalizer (handles both YYYY-MM-DD and MM/DD/YYYY) ──
+function toSortable(d) {
+  if (!d) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const [m, day, y] = d.split('/');
+  return `${y}-${(m||'').padStart(2,'0')}-${(day||'').padStart(2,'0')}`;
+}
+
 function pct(row, idx) {
   const v = row[idx];
   if (v === undefined || v === null || v === '') return null;
@@ -1625,12 +1633,6 @@ async function loadData() {
       ...nbRows.map(r => val(r, N.DATE_SCORED)),
     ].filter(Boolean);
     if (allDateScored.length) {
-      // Sort date strings (handles both YYYY-MM-DD and MM/DD/YYYY) to sortable YYYY-MM-DD
-      const toSortable = d => {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
-        const [m,day,y] = d.split('/');
-        return `${y}-${(m||'').padStart(2,'0')}-${(day||'').padStart(2,'0')}`;
-      };
       const latest = allDateScored.sort((a,b) => toSortable(b).localeCompare(toSortable(a)))[0];
       const lastScoredEl = el('last-scored');
       if (lastScoredEl) lastScoredEl.textContent = `Last scored: ${latest}`;
