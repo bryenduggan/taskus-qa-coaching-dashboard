@@ -1323,7 +1323,7 @@ function clSortVal(call, key) {
   const { r, rubric } = call;
   switch (key) {
     case 'agent':      return String(val(r, B.AGENT)     || '').toLowerCase();
-    case 'date':       return String(val(r, B.DATE)      || '');
+    case 'date':       return toSortable(String(val(r, B.DATE)      || ''));
     case 'type':       return String(val(r, B.TYPE)      || '').toLowerCase();
     case 'score':      return pct(r, B.OVERALL)                            ?? -1;
     case 'opener':     return pct(r, rubric==='booked' ? B.OP_PCT : N.OP_PCT) ?? -1;
@@ -1334,7 +1334,7 @@ function clSortVal(call, key) {
     case 'af':         return (rubric==='booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG)) ? 1 : 0;
     case 'lob':        return String(normalizeLOB(val(r, rubric==='booked' ? B.LOB : N.LOB)) || '').toLowerCase();
     case 'reviewer':   return String(val(r, rubric==='booked' ? B.REVIEWED_BY : N.REVIEWED_BY) || '').toLowerCase();
-    case 'dateScored':   return String(val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED) || '');
+    case 'dateScored':   return toSortable(String(val(r, rubric==='booked' ? B.DATE_SCORED : N.DATE_SCORED) || ''));
     case 'leadStatus':   return String(val(r, rubric==='booked' ? B.LEAD_STATUS : N.LEAD_STATUS) || '').toLowerCase();
     case 'accountName':  return String(val(r, rubric==='booked' ? B.ACCOUNT_NAME : N.ACCOUNT_NAME) || '').toLowerCase();
     default: return '';
@@ -1375,12 +1375,14 @@ function buildClHead() {
 }
 
 // Called when a sortable column header is clicked
+const CL_DATE_COLS = new Set(['date', 'dateScored']);
 function clSort(key) {
   if (clSortCol === key) {
     clSortDir = clSortDir === 'asc' ? 'desc' : 'asc';
   } else {
     clSortCol = key;
-    clSortDir = 'asc';
+    // Date columns default to newest-first on first click; everything else ascending
+    clSortDir = CL_DATE_COLS.has(key) ? 'desc' : 'asc';
   }
   buildClHead();
   renderCallRows(_clAllCalls);
