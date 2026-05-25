@@ -1,7 +1,83 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 174.7 145.2">
-  <rect width="174.7" height="145.2" rx="16" fill="#012939"/>
-  <path fill="white" d="M53.8,125.8h51.7c16.9,0,30.9-12.4,33.4-28.6,0-.5-.4-1-.9-1h-8.6c-.4,0-.8.3-.8.7-2.2,10.7-11.6,18.7-23,18.7h-40.9c-1,0-1.7-1-1.3-1.9l2.4-6.4c.2-.5.7-.9,1.3-.9h36.5c6.4,0,11.9-3.7,14.6-9,.3-.6-.2-1.3-.8-1.3H53.3c-.5,0-.9.4-.9.9v27.4c0,.8.6,1.4,1.4,1.4Z"/>
-  <path fill="white" d="M119.9,48.2v-27.4c0-.8-.6-1.4-1.4-1.4h-51.7c-16.9,0-30.9,12.4-33.4,28.6,0,.5.4,1,.9,1h8.6c.4,0,.8-.3.8-.7,2.2-10.7,11.6-18.7,23-18.7h40.9c1,0,1.7,1,1.3,1.9l-2.4,6.4c-.2.5-.7.9-1.3.9h-36.5c-6.4,0-11.9,3.7-14.6,9-.3.6.2,1.3.8,1.3h64c.5,0,.9-.4.9-.9Z"/>
-  <path fill="white" d="M157.5,96.1h-8.5c-.4,0-.8.3-.9.8-2.4,21.4-20.6,38.1-42.7,38.1h-60.9c-.8,0-1.4-.6-1.4-1.4v-36.6c0-.5-.4-.9-.9-.9h-8.5c-.5,0-.9.4-.9.9v27.4c0,1.2-1.5,1.9-2.4,1l-6.4-6.4c-.3-.3-.4-.6-.4-1v-21c0-.5-.4-.9-.9-.9h-8.5c-.5,0-.9.4-.9.9v24.1c0,1.1.4,2.2,1.2,3l20,20c.8.8,1.9,1.2,3,1.2h67.8c27.7,0,50.4-21.1,52.9-48.1,0-.5-.4-1-.9-1Z"/>
-  <path fill="white" d="M14.7,49.1h8.5c.4,0,.8-.3.9-.8,2.4-21.4,20.6-38.1,42.7-38.1h60.9c.8,0,1.4.6,1.4,1.4v36.6c0,.5.4.9.9.9h8.5c.5,0,.9-.4.9-.9v-27.4c0-1.2,1.5-1.9,2.4-1l6.4,6.4c.1.3.3.6.4,1v21c0,.5.4.9.9.9h8.5c.5,0,.9-.4.9-.9v-24.1c0-1.1-.4-2.2-1.2-3L137.5,1.2c-.8-.8-1.9-1.2-3-1.2h-67.8C39.1,0,16.4,21.1,13.8,48.1c0,.5.4,1,.9,1Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536">
+  <!-- Transparent background -->
+  <defs>
+    <linearGradient id="greenHead" x1="300" y1="300" x2="720" y2="760">
+      <stop offset="0" stop-color="#9cc63b"/>
+      <stop offset="1" stop-color="#5f9229"/>
+    </linearGradient>
+    <linearGradient id="brownBody" x1="350" y1="650" x2="690" y2="1360">
+      <stop offset="0" stop-color="#b55f31"/>
+      <stop offset="1" stop-color="#6f3519"/>
+    </linearGradient>
+    <linearGradient id="belly" x1="440" y1="650" x2="620" y2="1180">
+      <stop offset="0" stop-color="#c87943"/>
+      <stop offset="1" stop-color="#9c4e27"/>
+    </linearGradient>
+  </defs>
+  <!-- Arms -->
+  <path d="M340 610 C230 760 160 880 90 950 C140 1080 270 1070 335 960 Z"
+        fill="#8b421f" stroke="#120805" stroke-width="14"/>
+  <path d="M684 610 C794 760 864 880 934 950 C884 1080 754 1070 689 960 Z"
+        fill="#8b421f" stroke="#120805" stroke-width="14"/>
+  <!-- Body -->
+  <path d="M330 650 C390 570 635 570 694 650 C765 800 735 1110 690 1265 L535 1265 L535 1110 L489 1110 L489 1265 L334 1265 C289 1110 259 800 330 650 Z"
+        fill="url(#brownBody)" stroke="#120805" stroke-width="14"/>
+  <!-- Belly -->
+  <path d="M395 650 C445 610 580 610 630 650 C700 770 690 1045 620 1095 C575 1125 450 1125 405 1095 C335 1045 325 770 395 650 Z"
+        fill="url(#belly)" opacity="0.95"/>
+  <!-- Belly highlight -->
+  <path d="M438 690 C500 660 600 690 623 760 C560 735 485 735 430 770 C400 745 395 710 438 690 Z"
+        fill="#d98a55" opacity="0.35"/>
+  <!-- Stitch -->
+  <path d="M548 760 C570 845 565 930 545 1010"
+        fill="none" stroke="#120805" stroke-width="6" stroke-linecap="round"/>
+  <path d="M536 790 L565 780 M540 835 L570 830 M537 880 L566 890 M538 925 L563 930 M535 970 L558 960"
+        stroke="#120805" stroke-width="5" stroke-linecap="round"/>
+  <!-- Head -->
+  <ellipse cx="512" cy="470" rx="190" ry="205"
+           fill="url(#greenHead)" stroke="#000" stroke-width="14"/>
+  <!-- Mouth flap / face lower -->
+  <path d="M305 400 C390 445 625 445 719 400 C710 540 620 645 512 650 C405 645 315 540 305 400 Z"
+        fill="#7fb233" stroke="#000" stroke-width="12"/>
+  <!-- Smile line -->
+  <path d="M335 420 C425 455 600 455 690 420"
+        fill="none" stroke="#000" stroke-width="7" stroke-linecap="round"/>
+  <!-- Face highlight -->
+  <path d="M420 460 C505 430 645 455 675 520 C575 500 465 520 420 590 C380 535 380 480 420 460 Z"
+        fill="#a8cc49" opacity="0.55"/>
+  <!-- Inner white cheek shapes -->
+  <path d="M370 390 C395 350 420 390 430 430 C405 420 385 415 370 390 Z"
+        fill="#fff" stroke="#000" stroke-width="7"/>
+  <path d="M654 390 C629 350 604 390 594 430 C619 420 639 415 654 390 Z"
+        fill="#fff" stroke="#000" stroke-width="7"/>
+  <!-- Neck fringe -->
+  <path d="M360 600 L388 560 L410 610 L435 560 L455 625 L485 570 L505 635 L525 570 L550 635 L570 570 L596 625 L615 560 L640 610 L665 560 L690 600 C615 665 435 670 360 600 Z"
+        fill="#7fb233"/>
+  <path d="M370 590 C420 640 600 645 675 590"
+        fill="none" stroke="#4f7e24" stroke-width="6" opacity="0.45"/>
+  <!-- Eyes -->
+  <g>
+    <circle cx="368" cy="265" r="72" fill="#fff" stroke="#000" stroke-width="10"/>
+    <circle cx="368" cy="265" r="52" fill="none" stroke="#8b2f42" stroke-width="4"/>
+    <circle cx="368" cy="265" r="36" fill="none" stroke="#8b2f42" stroke-width="4"/>
+    <circle cx="368" cy="265" r="16" fill="#111"/>
+    <circle cx="373" cy="260" r="5" fill="#fff"/>
+  </g>
+  <g>
+    <circle cx="656" cy="265" r="72" fill="#fff" stroke="#000" stroke-width="10"/>
+    <circle cx="656" cy="265" r="52" fill="none" stroke="#8b2f42" stroke-width="4"/>
+    <circle cx="656" cy="265" r="36" fill="none" stroke="#8b2f42" stroke-width="4"/>
+    <circle cx="656" cy="265" r="16" fill="#111"/>
+    <circle cx="650" cy="258" r="5" fill="#fff"/>
+  </g>
+  <!-- Feet/legs -->
+  <path d="M330 1090 L490 1090 L490 1330 L365 1325 Z"
+        fill="#8a431f" stroke="#120805" stroke-width="14"/>
+  <path d="M534 1090 L694 1090 L659 1325 L534 1330 Z"
+        fill="#8a431f" stroke="#120805" stroke-width="14"/>
+  <!-- Subtle body shadows -->
+  <path d="M330 690 C295 820 300 1030 360 1130"
+        fill="none" stroke="#000" stroke-width="9" opacity="0.35"/>
+  <path d="M694 690 C729 820 724 1030 664 1130"
+        fill="none" stroke="#000" stroke-width="9" opacity="0.35"/>
 </svg>
