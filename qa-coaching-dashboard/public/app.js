@@ -102,6 +102,8 @@ function pct(row, idx) {
 function val(row, idx)   { return (row[idx] || '').toString().trim(); }
 function isYes(row, idx) { return val(row, idx).toLowerCase() === 'yes'; }
 function isNA(row, idx)  { const v = val(row, idx).toLowerCase(); return v === 'na' || v === 'n/a'; }
+// Autofail exclusion helper — used to strip AF calls from score averages (not from call counts or the log)
+function isAutofailRow(r, rubric) { return rubric === 'booked' ? isYes(r, B.AF_TRIG) : isYes(r, N.AF_TRIG); }
 function hitRate(rows, idx) {
   const eligible = rows.filter(r => !isNA(r, idx));
   if (!eligible.length) return null;
@@ -658,13 +660,17 @@ function populateReviewerFilter(bookedRows, nbRows) {
 // ════════════════════════════════════════════════════════════════
 function buildOverview(bookedRows, nbRows) {
   const allRows   = [...bookedRows, ...nbRows];
-  const allScores = allRows.map(r => pct(r, B.OVERALL)).filter(n => n !== null);
+  // Exclude autofail rows from score averages (calls still appear in log/counts)
+  const nonAFBooked = bookedRows.filter(r => !isYes(r, B.AF_TRIG));
+  const nonAFNB     = nbRows.filter(r => !isYes(r, N.AF_TRIG));
+  const nonAFRows   = [...nonAFBooked, ...nonAFNB];
+  const allScores = nonAFRows.map(r => pct(r, B.OVERALL)).filter(n => n !== null);
   const teamAvg   = avg(allScores);
   const totalAF   = bookedRows.filter(r => isYes(r, B.AF_TRIG)).length +
                     nbRows.filter(r => isYes(r, N.AF_TRIG)).length;
 
   const agentMap = {};
-  allRows.forEach(r => {
+  nonAFRows.forEach(r => {
     const agent = val(r, 1), score = pct(r, B.OVERALL);
     if (!agent || score === null) return;
     (agentMap[agent] = agentMap[agent] || []).push(score);
@@ -753,7 +759,7 @@ function buildBooked(bookedRows) {
     el('booked-kpis').innerHTML = '<p style="color:var(--text-muted)">No booked/LT calls in this batch.</p>';
     return;
   }
-  const avgOverall = avg(bookedRows.map(r => pct(r, B.OVERALL)).filter(n => n !== null));
+  const avgOverall = avg(bookedRows.filter(r => !isYes(r, B.AF_TRIG)).map(r => pct(r, B.OVERALL)).filter(n => n !== null));
   const econRate   = hitRate(bookedRows, B.DC_ECON);
   const urgRate    = hitRate(bookedRows, B.DC_URG);
   const nsRate     = avg(bookedRows.map(r => pct(r, B.NS_PCT)).filter(n => n !== null));
@@ -844,7 +850,7 @@ function buildNoBooking(nbRows) {
     el('nb-kpis').innerHTML = '<p style="color:var(--text-muted)">No no-booking calls in this batch.</p>';
     return;
   }
-  const avgOverall = avg(nbRows.map(r => pct(r, N.OVERALL)).filter(n => n !== null));
+  const avgOverall = avg(nbRows.filter(r => !isYes(r, N.AF_TRIG)).map(r => pct(r, N.OVERALL)).filter(n => n !== null));
   const hookRate   = hitRate(nbRows, N.OP_HOOK);
   const pbRate     = hitRate(nbRows, N.DIAG1);
 
@@ -996,9 +1002,9 @@ function buildLOB(bookedRows, nbRows) {
       grid.innerHTML += `<div class="lob-card"><div class="lob-card-header"><span class="lob-badge lob-${cat.toLowerCase()}">${cat}</span><span style="color:var(--text-muted);font-size:0.75rem">0 calls</span></div><div class="lob-empty">No ${cat} calls in this batch.</div></div>`;
       return;
     }
-    const scores    = calls.map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
-    const avgScore  = avg(scores);
     const autofails = calls.filter(c => c.rubric === 'booked' ? isYes(c.r, B.AF_TRIG) : isYes(c.r, N.AF_TRIG)).length;
+    const scores    = calls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
+    const avgScore  = avg(scores);
     function secAvg(bIdx, nIdx) {
       return avg([
         ...calls.filter(c => c.rubric === 'booked').map(c => pct(c.r, bIdx)),
@@ -1060,17 +1066,20 @@ function buildManager(bookedRows, nbRows) {
     mgrData[mgr].calls.push({ r, rubric });
     if (!mgrData[mgr].reps[agent]) mgrData[mgr].reps[agent] = { scores: [], calls: 0 };
     mgrData[mgr].reps[agent].calls++;
-    const s = pct(r, B.OVERALL);
-    if (s !== null) mgrData[mgr].reps[agent].scores.push(s);
+    // Exclude autofail calls from score averages
+    if (!isAutofailRow(r, rubric)) {
+      const s = pct(r, B.OVERALL);
+      if (s !== null) mgrData[mgr].reps[agent].scores.push(s);
+    }
   });
 
-  const allScores = allCalls.map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
+  const allScores = allCalls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
   const teamAvg   = avg(allScores);
 
   el('mgr-kpis').innerHTML = [
     kpiCard('Team Avg', `${teamAvg}%`, `${allCalls.length} total calls`, scoreClass(teamAvg)),
     ...Object.entries(mgrData).map(([mgr, d]) => {
-      const scores = d.calls.map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
+      const scores = d.calls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
       const mgrAvg = scores.length ? avg(scores) : null;
       const firstName = mgr.split(' ')[0];
       return kpiCard(`${firstName}'s Pod`, mgrAvg !== null ? `${mgrAvg}%` : '—', `${d.calls.length} calls · ${MANAGER_MAP[mgr].length} reps`, mgrAvg !== null ? scoreClass(mgrAvg) : 'amber');
@@ -1082,7 +1091,7 @@ function buildManager(bookedRows, nbRows) {
 
   Object.entries(MANAGER_MAP).forEach(([mgr, repList]) => {
     const d       = mgrData[mgr];
-    const scores  = d.calls.map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
+    const scores  = d.calls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
     const mgrAvg  = scores.length ? avg(scores) : null;
     const afCount = d.calls.filter(c => c.rubric === 'booked' ? isYes(c.r, B.AF_TRIG) : isYes(c.r, N.AF_TRIG)).length;
 
@@ -1298,7 +1307,7 @@ function renderRepDetail(bookedRows, nbRows, repName) {
     return;
   }
 
-  const allScores = allCalls.map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
+  const allScores = allCalls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
   const repAvg    = avg(allScores);
   const afCount   = allCalls.filter(c => c.rubric === 'booked' ? isYes(c.r, B.AF_TRIG) : isYes(c.r, N.AF_TRIG)).length;
   const manager   = REP_TO_MANAGER[repName] || '—';
@@ -1307,20 +1316,22 @@ function renderRepDetail(bookedRows, nbRows, repName) {
   const lob       = normalizeLOB(lobRaw) || lobRaw || '—';
   currentRepLob   = lob;
 
-  // Section averages
+  // Section averages — exclude autofail calls so they don't drag down section scores
+  const repBNonAF = repB.filter(r => !isYes(r, B.AF_TRIG));
+  const repNNonAF = repN.filter(r => !isYes(r, N.AF_TRIG));
   const secRows = [];
   if (repB.length) {
     [['Booked — Opener', B.OP_PCT], ['Booked — Discovery', B.DC_PCT],
      ['Booked — Pitch', B.PT_PCT], ['Booked — Next Step', B.NS_PCT], ['Booked — General', B.GN_PCT]]
      .forEach(([name, i]) => {
-       const v = avg(repB.map(r => pct(r,i)).filter(n=>n!==null));
+       const v = avg(repBNonAF.map(r => pct(r,i)).filter(n=>n!==null));
        secRows.push([name, v]);
      });
   }
   if (repN.length) {
     [['NB — Opener', N.OP_PCT], ['NB — Discovery', N.DC_PCT], ['NB — Objections', N.OB_PCT]]
      .forEach(([name, i]) => {
-       const v = avg(repN.map(r => pct(r,i)).filter(n=>n!==null));
+       const v = avg(repNNonAF.map(r => pct(r,i)).filter(n=>n!==null));
        secRows.push([name, v]);
      });
   }
@@ -1466,7 +1477,8 @@ function buildReviewer(bookedRows, nbRows) {
     if (!reviewerMap[rev]) reviewerMap[rev] = { scores: [], calls: 0, agents: new Set() };
     reviewerMap[rev].calls++;
     if (agent) reviewerMap[rev].agents.add(agent);
-    if (score !== null) reviewerMap[rev].scores.push(score);
+    // Exclude autofail calls from score averages
+    if (score !== null && !isAutofailRow(r, rubric)) reviewerMap[rev].scores.push(score);
   });
   const reviewers     = Object.entries(reviewerMap).map(([name, d]) => ({ name, avg: d.scores.length ? avg(d.scores) : null, calls: d.calls, agents: d.agents.size })).sort((a,b) => b.calls-a.calls);
   const isAI          = name => /ai|claude/i.test(name);
@@ -1595,10 +1607,11 @@ function buildCallLog(bookedRows, nbRows) {
   const allCalls = [...bookedRows.map(r => ({ r, rubric:'booked' })), ...nbRows.map(r => ({ r, rubric:'nb' }))];
   // Sorting is handled by renderCallRows (default: date desc)
 
-  const allScores = allCalls.map(c => pct(c.r, B.OVERALL)).filter(n=>n!==null);
-  const teamAvg   = avg(allScores);
   const totalAF   = allCalls.filter(c => c.rubric==='booked' ? isYes(c.r,B.AF_TRIG) : isYes(c.r,N.AF_TRIG)).length;
-  const belowAvg  = allCalls.filter(c => (pct(c.r,B.OVERALL)||0) < 65).length;
+  const nonAFCalls = allCalls.filter(c => !isAutofailRow(c.r, c.rubric));
+  const allScores = nonAFCalls.map(c => pct(c.r, B.OVERALL)).filter(n=>n!==null);
+  const teamAvg   = avg(allScores);
+  const belowAvg  = nonAFCalls.filter(c => (pct(c.r,B.OVERALL)||0) < 65).length;
 
   el('cl-kpis').innerHTML = [
     kpiCard('Total Calls', allCalls.length, 'in this batch', 'blue'),
