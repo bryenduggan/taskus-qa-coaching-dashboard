@@ -198,10 +198,15 @@ function insightSectionBar(name, value, bookedRows, nbRows, sectionDef) {
   ]);
   function isActionableTag(tag) {
     if (!tag || tag.length < 5) return false;
-    return !JUNK_TAGS.has(tag.toLowerCase().trim());
+    const lower = tag.toLowerCase().trim();
+    if (JUNK_TAGS.has(lower)) return false;
+    if (lower.startsWith('[re-score needed') || lower.startsWith('re-score needed')) return false;
+    if (lower.startsWith('[compliance flag') || lower.startsWith('compliance flag')) return false;
+    return true;
   }
 
   // Frequency count CP1/CP2/CP3 tags, excluding junk values
+  // Only surface themes that appear 3+ times (single/rare occurrences aren't patterns)
   const tagFreq = {};
   tagSources.forEach(([type, r]) => {
     [val(r, type === 'b' ? B.CP1 : N.CP1),
@@ -210,7 +215,10 @@ function insightSectionBar(name, value, bookedRows, nbRows, sectionDef) {
       if (isActionableTag(tag)) tagFreq[tag] = (tagFreq[tag] || 0) + 1;
     });
   });
-  const topTags = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const topTags = Object.entries(tagFreq)
+    .filter(([, count]) => count >= 3)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
 
   // Rubric hit rates for biggest opportunities
   const rubricItems = [];
@@ -229,11 +237,13 @@ function insightSectionBar(name, value, bookedRows, nbRows, sectionDef) {
   const sent1 = `${name} scores ${value}% on average across ${totalCalls} call${totalCalls !== 1 ? 's' : ''}` +
     (value >= 65 ? ' — on track.' : ' — below the 65% threshold.');
   const sent2 = topTags.length
-    ? `Top coaching theme${hasWeak ? ' in struggling calls' : ''}: "${topTags[0][0]}" (${topTags[0][1]} occurrence${topTags[0][1] !== 1 ? 's' : ''}).`
-    : 'No coaching themes detected in current filter.';
+    ? `${topTags[0][0]} [highest available theme, ${topTags[0][1]} call${topTags[0][1] !== 1 ? 's' : ''}].`
+    : rubricItems.length
+      ? `Biggest rubric gap: ${rubricItems[0][0]} at ${rubricItems[0][1]}% hit rate.`
+      : '';
   const sent3 = rubricItems.length
     ? `Biggest opportunity: ${rubricItems[0][0]} — hit rate of only ${rubricItems[0][1]}%.`
-    : 'No rubric detail available.';
+    : '';
 
   // Top themes HTML
   const tagsHTML = topTags.length
@@ -242,7 +252,7 @@ function insightSectionBar(name, value, bookedRows, nbRows, sectionDef) {
           <span class="insight-tag-label">${esc(tag)}</span>
           <span class="insight-tag-count">${count}</span>
         </div>`).join('')
-    : `<span class="insight-empty">No coaching tags in current filter</span>`;
+    : `<span class="insight-empty">Not enough data — no theme appears 3+ times</span>`;
 
   // Biggest opportunities HTML (bottom 3 rubric items)
   const oppHTML = rubricItems.slice(0, 3).map(([label, hr]) => {
@@ -261,7 +271,7 @@ function insightSectionBar(name, value, bookedRows, nbRows, sectionDef) {
     </div>
     <div class="sbar-track"><div class="sbar-fill ${cls}" style="width:${Math.min(value,100)}%"></div></div>
     <div class="insight-panel" id="${uid}" onclick="event.stopPropagation()">
-      <p class="insight-summary">${esc(sent1)} ${esc(sent2)} ${esc(sent3)}</p>
+      <p class="insight-summary">${esc([sent1, sent2, sent3].filter(Boolean).join(' '))}</p>
       <div class="insight-section">
         <div class="insight-section-title">Top Coaching Themes</div>
         <div class="insight-tags">${tagsHTML}</div>
@@ -1321,7 +1331,14 @@ function renderRepDetail(bookedRows, nbRows, repName) {
     const callId = val(r, B.CALL_ID);
     const _junk = new Set(['no','yes','n/a','na','n.a.','none','—','-','–','x','skip','skipped','re-score','rescore','re score','rescored','tbd','see notes','note','notes','ok','okay','good','fine','pass']);
     return [rb==='booked'?val(r,B.CP1):val(r,N.CP1), rb==='booked'?val(r,B.CP2):val(r,N.CP2), rb==='booked'?val(r,B.CP3):val(r,N.CP3)]
-      .filter(v => v && v.length >= 5 && !_junk.has(v.toLowerCase().trim()))
+      .filter(v => {
+        if (!v || v.length < 5) return false;
+        const lower = v.toLowerCase().trim();
+        if (_junk.has(lower)) return false;
+        if (lower.startsWith('[re-score needed') || lower.startsWith('re-score needed')) return false;
+        if (lower.startsWith('[compliance flag') || lower.startsWith('compliance flag')) return false;
+        return true;
+      })
       .map(text => ({ text, callId }));
   });
   const cpCounts  = {};
