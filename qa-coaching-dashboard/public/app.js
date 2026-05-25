@@ -371,17 +371,21 @@ function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete chart
 // ── Period filter ─────────────────────────────────────────────
 let currentPeriod = 'all';
 
+// ── Reviewer filter ───────────────────────────────────────────
+let currentReviewer = 'all';
+
 // ── UI state persistence (survive refresh) ────────────────────
 const UI_STATE_KEY = 'qa_ui_state';
 function saveUIState() {
   const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'overview';
   try {
     localStorage.setItem(UI_STATE_KEY, JSON.stringify({
-      tab:         activeTab,
-      period:      currentPeriod,
-      agentFilter: activeAgentFilter,
-      sortCol:     clSortCol,
-      sortDir:     clSortDir,
+      tab:            activeTab,
+      period:         currentPeriod,
+      agentFilter:    activeAgentFilter,
+      sortCol:        clSortCol,
+      sortDir:        clSortDir,
+      reviewerFilter: currentReviewer,
     }));
   } catch (_) {}
 }
@@ -454,13 +458,24 @@ function getPeriodBounds(period) {
 
 function getFilteredData() {
   if (!dataCache) return { bookedRows: [], nbRows: [] };
-  if (currentPeriod === 'all') return dataCache;
-  const bounds = getPeriodBounds(currentPeriod);
-  if (!bounds) return dataCache;
-  return {
-    bookedRows: dataCache.bookedRows.filter(r => inPeriod(val(r, B.DATE_SCORED), bounds)),
-    nbRows:     dataCache.nbRows.filter(r => inPeriod(val(r, N.DATE_SCORED), bounds)),
-  };
+  let { bookedRows, nbRows } = dataCache;
+
+  // Period filter
+  if (currentPeriod !== 'all') {
+    const bounds = getPeriodBounds(currentPeriod);
+    if (bounds) {
+      bookedRows = bookedRows.filter(r => inPeriod(val(r, B.DATE_SCORED), bounds));
+      nbRows     = nbRows.filter(r => inPeriod(val(r, N.DATE_SCORED), bounds));
+    }
+  }
+
+  // Reviewer filter
+  if (currentReviewer !== 'all') {
+    bookedRows = bookedRows.filter(r => val(r, B.REVIEWED_BY) === currentReviewer);
+    nbRows     = nbRows.filter(r => val(r, N.REVIEWED_BY) === currentReviewer);
+  }
+
+  return { bookedRows, nbRows };
 }
 
 function switchPeriod(p) {
@@ -482,6 +497,35 @@ function switchPeriod(p) {
     showTab(activeTab);
   }
   saveUIState();
+}
+
+function switchReviewer(r) {
+  currentReviewer = r;
+  document.querySelectorAll('.reviewer-btn').forEach(b => b.classList.toggle('active', b.dataset.reviewer === r));
+  builtTabs.clear();
+  if (dataCache) {
+    const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'overview';
+    showTab(activeTab);
+  }
+  saveUIState();
+}
+
+function populateReviewerFilter(bookedRows, nbRows) {
+  const reviewers = new Set();
+  bookedRows.forEach(r => { const rv = val(r, B.REVIEWED_BY); if (rv) reviewers.add(rv); });
+  nbRows.forEach(r    => { const rv = val(r, N.REVIEWED_BY); if (rv) reviewers.add(rv); });
+
+  const sorted = ['all', ...[...reviewers].sort()];
+  const wrap   = el('reviewer-filter-buttons');
+  wrap.innerHTML = '';
+  sorted.forEach(rv => {
+    const btn = document.createElement('button');
+    btn.className        = 'period-btn reviewer-btn' + (currentReviewer === rv ? ' active' : '');
+    btn.dataset.reviewer = rv;
+    btn.textContent      = rv === 'all' ? 'All' : rv;
+    btn.onclick          = () => switchReviewer(rv);
+    wrap.appendChild(btn);
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1600,8 +1644,9 @@ async function loadData() {
   el('loading').classList.remove('hidden');
   el('error-state').classList.add('hidden');
   el('period-filter').classList.add('hidden');
+  el('reviewer-filter').classList.add('hidden');
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-  builtTabs.clear(); dataCache = null; activeAgentFilter = 'all'; currentRep = null; currentPeriod = 'all';
+  builtTabs.clear(); dataCache = null; activeAgentFilter = 'all'; currentRep = null; currentPeriod = 'all'; currentReviewer = 'all';
   document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === 'all'));
   Object.keys(charts).forEach(id => { charts[id].destroy(); delete charts[id]; });
 
@@ -1641,6 +1686,7 @@ async function loadData() {
     dataCache = { bookedRows, nbRows };
     el('loading').classList.add('hidden');
     el('period-filter').classList.remove('hidden');
+    el('reviewer-filter').classList.remove('hidden');
 
     // Restore UI state from before the refresh
     const saved = loadUIState();
@@ -1659,6 +1705,10 @@ async function loadData() {
         }
       }
     }
+    if (saved.reviewerFilter) currentReviewer = saved.reviewerFilter;
+
+    // Populate reviewer filter from live data (always from full unfiltered cache)
+    populateReviewerFilter(bookedRows, nbRows);
 
     const { bookedRows: initBooked, nbRows: initNB } = getFilteredData();
     buildOverview(initBooked, initNB);
