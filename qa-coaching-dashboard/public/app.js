@@ -190,13 +190,24 @@ function insightSectionBar(name, value, bookedRows, nbRows, sectionDef) {
     ? [...weakBRows.map(r => ['b', r]), ...weakNRows.map(r => ['n', r])]
     : [...bookedRows.map(r => ['b', r]), ...nbRows.map(r => ['n', r])];
 
-  // Frequency count CP1/CP2/CP3 tags
+  // Non-actionable values to exclude from coaching themes
+  const JUNK_TAGS = new Set([
+    'no','yes','n/a','na','n.a.','none','—','-','–','x','skip','skipped',
+    're-score','rescore','re score','rescored','tbd','to be determined',
+    'see notes','note','notes','ok','okay','good','fine','pass',
+  ]);
+  function isActionableTag(tag) {
+    if (!tag || tag.length < 5) return false;
+    return !JUNK_TAGS.has(tag.toLowerCase().trim());
+  }
+
+  // Frequency count CP1/CP2/CP3 tags, excluding junk values
   const tagFreq = {};
   tagSources.forEach(([type, r]) => {
     [val(r, type === 'b' ? B.CP1 : N.CP1),
      val(r, type === 'b' ? B.CP2 : N.CP2),
      val(r, type === 'b' ? B.CP3 : N.CP3)].forEach(tag => {
-      if (tag && tag !== '—') tagFreq[tag] = (tagFreq[tag] || 0) + 1;
+      if (isActionableTag(tag)) tagFreq[tag] = (tagFreq[tag] || 0) + 1;
     });
   });
   const topTags = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -1308,8 +1319,9 @@ function renderRepDetail(bookedRows, nbRows, repName) {
   const cpAll = allCalls.flatMap(c => {
     const r = c.r, rb = c.rubric;
     const callId = val(r, B.CALL_ID);
+    const _junk = new Set(['no','yes','n/a','na','n.a.','none','—','-','–','x','skip','skipped','re-score','rescore','re score','rescored','tbd','see notes','note','notes','ok','okay','good','fine','pass']);
     return [rb==='booked'?val(r,B.CP1):val(r,N.CP1), rb==='booked'?val(r,B.CP2):val(r,N.CP2), rb==='booked'?val(r,B.CP3):val(r,N.CP3)]
-      .filter(v => v && v !== '—')
+      .filter(v => v && v.length >= 5 && !_junk.has(v.toLowerCase().trim()))
       .map(text => ({ text, callId }));
   });
   const cpCounts  = {};
