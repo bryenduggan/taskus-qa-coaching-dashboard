@@ -1811,7 +1811,6 @@ async function loadData() {
   el('loading').classList.remove('hidden');
   el('error-state').classList.add('hidden');
   el('period-filter').classList.add('hidden');
-  el('reviewer-filter').classList.add('hidden');
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
   builtTabs.clear(); dataCache = null; activeAgentFilter = 'all'; currentRep = null; currentPeriod = 'all'; currentReviewer = 'all';
   document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === 'all'));
@@ -1853,7 +1852,6 @@ async function loadData() {
     dataCache = { bookedRows, nbRows };
     el('loading').classList.add('hidden');
     el('period-filter').classList.remove('hidden');
-    el('reviewer-filter').classList.remove('hidden');
 
     // Restore UI state from before the refresh
     const saved = loadUIState();

@@ -81,7 +81,7 @@
     </nav>
   </div>
 
-  <!-- ══════════════════ PERIOD FILTER ══════════════════ -->
+  <!-- ══════════════════ FILTER BAR ══════════════════ -->
   <div id="period-filter" class="period-bar-strip hidden">
     <div class="period-bar">
       <span class="period-label">Period:</span>
@@ -91,12 +91,7 @@
       <button class="period-btn"        data-period="mtd"          onclick="switchPeriod('mtd')">Month to Date</button>
       <button class="period-btn"        data-period="qtd"          onclick="switchPeriod('qtd')">Quarter to Date</button>
       <span id="period-range-label" class="period-range-label"></span>
-    </div>
-  </div>
-
-  <!-- ══════════════════ REVIEWER FILTER ══════════════════ -->
-  <div id="reviewer-filter" class="period-bar-strip hidden">
-    <div class="period-bar">
+      <span class="filter-bar-divider"></span>
       <span class="period-label">Reviewer:</span>
       <div id="reviewer-filter-buttons" style="display:inline-flex;flex-wrap:wrap;gap:4px"></div>
     </div>

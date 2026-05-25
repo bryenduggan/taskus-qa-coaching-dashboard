@@ -1292,6 +1292,13 @@ canvas { max-width: 100%; }
   margin-left: 6px;
   font-style: italic;
 }
+.filter-bar-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255,255,255,0.2);
+  margin: 0 10px;
+  flex-shrink: 0;
+}
 
 /* ── Objection accordion (Other objections) ──────────────────── */
 .obj-accordion {
