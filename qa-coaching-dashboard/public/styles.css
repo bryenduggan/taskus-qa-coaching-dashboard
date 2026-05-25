@@ -69,6 +69,7 @@ body {
   gap: 10px;
 }
 .logo-icon { height: 36px; width: auto; flex-shrink: 0; }
+.logo-dino { height: 52px; width: auto; flex-shrink: 0; }
 .logo-title {
   display: block;
   font-size: 1rem;
