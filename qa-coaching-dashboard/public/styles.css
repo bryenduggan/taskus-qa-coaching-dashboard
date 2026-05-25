@@ -1166,6 +1166,76 @@ canvas { max-width: 100%; }
 }
 
 /* ═══════════════════════════════════════════════════════
+   INSIGHT PANEL (overview section bars)
+   ═══════════════════════════════════════════════════════ */
+.insight-panel {
+  display: none;
+  margin-top: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+}
+.insight-panel.open { display: block; }
+
+.insight-summary {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.insight-section { margin-bottom: 10px; }
+.insight-section:last-child { margin-bottom: 0; }
+
+.insight-section-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.insight-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.insight-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 8px 3px 10px;
+}
+
+.insight-tag-label {
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.insight-tag-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--green-dim);
+  color: var(--green);
+  border-radius: 10px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.insight-empty {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════
    PERIOD FILTER BAR
    ═══════════════════════════════════════════════════════ */
 /* Period bar — outer strip stays navy, inner div aligns with header-inner */

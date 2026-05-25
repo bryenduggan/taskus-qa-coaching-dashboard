@@ -167,6 +167,110 @@ function toggleSbarExpand(uid, rowEl) {
   if (chevron) chevron.textContent = isOpen ? '˅' : '›';
 }
 
+// ── Insight section bar (Overview tab) ──────────────────────────
+let _isbarUid = 0;
+function insightSectionBar(name, value, bookedRows, nbRows, sectionDef) {
+  if (value === null || isNaN(value)) return '';
+  const cls = scoreClass(value);
+  const colorMap = { green: GREEN, amber: AMBER, red: RED };
+  const color = colorMap[cls];
+  const uid = `isbar-${++_isbarUid}`;
+
+  // Use calls where this section is underperforming (below section avg)
+  const weakBRows = sectionDef.bPct
+    ? bookedRows.filter(r => { const v = pct(r, sectionDef.bPct); return v !== null && v < value; })
+    : [];
+  const weakNRows = sectionDef.nPct
+    ? nbRows.filter(r => { const v = pct(r, sectionDef.nPct); return v !== null && v < value; })
+    : [];
+
+  // Fall back to all rows if there are no weak calls in the current filter
+  const hasWeak = weakBRows.length + weakNRows.length > 0;
+  const tagSources = hasWeak
+    ? [...weakBRows.map(r => ['b', r]), ...weakNRows.map(r => ['n', r])]
+    : [...bookedRows.map(r => ['b', r]), ...nbRows.map(r => ['n', r])];
+
+  // Frequency count CP1/CP2/CP3 tags
+  const tagFreq = {};
+  tagSources.forEach(([type, r]) => {
+    [val(r, type === 'b' ? B.CP1 : N.CP1),
+     val(r, type === 'b' ? B.CP2 : N.CP2),
+     val(r, type === 'b' ? B.CP3 : N.CP3)].forEach(tag => {
+      if (tag && tag !== '—') tagFreq[tag] = (tagFreq[tag] || 0) + 1;
+    });
+  });
+  const topTags = Object.entries(tagFreq).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  // Rubric hit rates for biggest opportunities
+  const rubricItems = [];
+  (sectionDef.bItems || []).forEach(([label, idx]) => {
+    const hr = hitRate(bookedRows, idx);
+    if (hr !== null) rubricItems.push([label, hr]);
+  });
+  (sectionDef.nItems || []).forEach(([label, idx]) => {
+    const hr = hitRate(nbRows, idx);
+    if (hr !== null) rubricItems.push([label, hr]);
+  });
+  rubricItems.sort((a, b) => a[1] - b[1]);
+
+  // 3-sentence auto-summary
+  const totalCalls = bookedRows.length + nbRows.length;
+  const sent1 = `${name} scores ${value}% on average across ${totalCalls} call${totalCalls !== 1 ? 's' : ''}` +
+    (value >= 65 ? ' — on track.' : ' — below the 65% threshold.');
+  const sent2 = topTags.length
+    ? `Top coaching theme${hasWeak ? ' in struggling calls' : ''}: "${topTags[0][0]}" (${topTags[0][1]} occurrence${topTags[0][1] !== 1 ? 's' : ''}).`
+    : 'No coaching themes detected in current filter.';
+  const sent3 = rubricItems.length
+    ? `Biggest opportunity: ${rubricItems[0][0]} — hit rate of only ${rubricItems[0][1]}%.`
+    : 'No rubric detail available.';
+
+  // Top themes HTML
+  const tagsHTML = topTags.length
+    ? topTags.map(([tag, count]) =>
+        `<div class="insight-tag">
+          <span class="insight-tag-label">${esc(tag)}</span>
+          <span class="insight-tag-count">${count}</span>
+        </div>`).join('')
+    : `<span class="insight-empty">No coaching tags in current filter</span>`;
+
+  // Biggest opportunities HTML (bottom 3 rubric items)
+  const oppHTML = rubricItems.slice(0, 3).map(([label, hr]) => {
+    const ic = scoreClass(hr);
+    return `<div class="sbar-item-row">
+      <span class="sbar-item-label">${esc(label)}</span>
+      <div class="sbar-item-track"><div class="sbar-item-fill ${ic}" style="width:${Math.min(hr,100)}%"></div></div>
+      <span class="sbar-item-pct" style="color:${colorMap[ic]}">${hr}%</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="sbar-row sbar-expandable" onclick="toggleInsightBar('${uid}',this)">
+    <div class="sbar-header">
+      <span class="sbar-name"><span class="sbar-chevron">›</span> ${esc(name)}</span>
+      <span class="sbar-pct" style="color:${color}">${value}%</span>
+    </div>
+    <div class="sbar-track"><div class="sbar-fill ${cls}" style="width:${Math.min(value,100)}%"></div></div>
+    <div class="insight-panel" id="${uid}" onclick="event.stopPropagation()">
+      <p class="insight-summary">${esc(sent1)} ${esc(sent2)} ${esc(sent3)}</p>
+      <div class="insight-section">
+        <div class="insight-section-title">Top Coaching Themes</div>
+        <div class="insight-tags">${tagsHTML}</div>
+      </div>
+      ${rubricItems.length ? `<div class="insight-section">
+        <div class="insight-section-title">Biggest Opportunities</div>
+        ${oppHTML}
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+function toggleInsightBar(uid, rowEl) {
+  const panel = el(uid);
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  const chevron = rowEl.querySelector('.sbar-chevron');
+  if (chevron) chevron.textContent = isOpen ? '˅' : '›';
+}
+
 function kpiCard(label, value, sub, colorClass) {
   return `<div class="kpi-card ${colorClass}">
     <div class="kpi-label">${label}</div>
@@ -564,8 +668,25 @@ function buildOverview(bookedRows, nbRows) {
     kpiCard('Weakest Section', sectionLabels[weakIdx], `${combined[weakIdx] ?? '—'}% avg`, combined[weakIdx] !== null ? scoreClass(combined[weakIdx]) : 'amber'),
   ].join('');
 
+  const sectionDefs = [
+    { bPct: B.OP_PCT, nPct: N.OP_PCT,
+      bItems: [['Intro / Name',B.OP_INTRO],['Purpose',B.OP_PURPOSE],['Context',B.OP_CONTEXT],['Industry',B.OP_INDUSTRY],['Company Size',B.OP_COMPANY_SIZE]],
+      nItems: [['Hook',N.OP_HOOK],['Purpose',N.OP_PURPOSE],['Context',N.OP_CONTEXT],['Right Person',N.OP_RIGHT_PERSON]] },
+    { bPct: B.DC_PCT, nPct: N.DC_PCT,
+      bItems: [['Current Process',B.DC_PROC],['Need / Pain',B.DC_PAIN],['Econ Impact',B.DC_ECON],['Implicit Needs',B.DC_IMPLICIT],['Urgency',B.DC_URG]],
+      nItems: [['Current Process',N.DC_PROC],['Need / Pain',N.DC_PAIN],['Position',N.DC_POSITION]] },
+    { bPct: B.PT_PCT, nPct: N.OB_PCT,
+      bItems: [['Restate & Validate',B.PT_RESTATE],['Present Jobber',B.PT_PRESENT]],
+      nItems: [['Reason',N.OB_REASON],['Value',N.OB_VALUE],['Pivot',N.OB_PIVOT],['Clarify',N.OB_CLARIFY],['Pacing',N.OB_PACING],['Respect',N.OB_RESPECT]] },
+    { bPct: B.NS_PCT, nPct: null,
+      bItems: [['NS Established',B.NS_EST],['Confirmed',B.NS_CONFIRM],['Recap',B.NS_RECAP],['Addl Help',B.NS_ADDL],['Close (LT)',B.NS_CLOSE_LT],['Close (Book)',B.NS_CLOSE_BK]],
+      nItems: [] },
+    { bPct: B.GN_PCT, nPct: null,
+      bItems: [['Objection Handling',B.GN_OBJ],['Communication',B.GN_COMM],['Acknowledgement',B.GN_ACK]],
+      nItems: [] },
+  ];
   el('overview-section-bars').innerHTML = sectionLabels.map((name, i) =>
-    combined[i] !== null ? sectionBar(name, combined[i]) : ''
+    combined[i] !== null ? insightSectionBar(name, combined[i], bookedRows, nbRows, sectionDefs[i]) : ''
   ).join('');
 
   destroyChart('dist');
