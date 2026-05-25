@@ -1460,24 +1460,28 @@ function buildCallLog(bookedRows, nbRows) {
   const agents = [...new Set(allCalls.map(c => val(c.r, B.AGENT)).filter(Boolean))].sort();
   const fw = el('agent-filters');
   fw.innerHTML = '';
-  function makeChip(label, value) {
-    const chip = document.createElement('button');
-    chip.className = 'filter-chip' + (activeAgentFilter === value ? ' active' : '');
-    chip.textContent = label;
-    chip.onclick = () => {
-      activeAgentFilter = value;
-      fw.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      renderCallRows(allCalls);
-      saveUIState();
-    };
-    fw.appendChild(chip);
-  }
-  // Count calls per agent for chip labels
+  // Count calls per agent for dropdown labels
   const agentCounts = {};
   allCalls.forEach(c => { const a = val(c.r, B.AGENT); if (a) agentCounts[a] = (agentCounts[a] || 0) + 1; });
-  makeChip(`All (${allCalls.length})`, 'all');
-  agents.forEach(a => makeChip(`${a} (${agentCounts[a] || 0})`, a));
+  const repSel = document.createElement('select');
+  repSel.className = 'rep-filter-select';
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = 'all';
+  defaultOpt.textContent = `Filter by rep (${allCalls.length})`;
+  repSel.appendChild(defaultOpt);
+  agents.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a;
+    opt.textContent = `${a} (${agentCounts[a] || 0})`;
+    repSel.appendChild(opt);
+  });
+  repSel.value = activeAgentFilter;
+  repSel.onchange = () => {
+    activeAgentFilter = repSel.value;
+    renderCallRows(allCalls);
+    saveUIState();
+  };
+  fw.appendChild(repSel);
   _clAllCalls = allCalls;
   buildClHead();
   renderCallRows(allCalls);

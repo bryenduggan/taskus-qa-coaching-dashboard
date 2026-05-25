@@ -430,6 +430,26 @@ body {
    CALL LOG TAB
    ═══════════════════════════════════════════════════════ */
 
+/* Rep filter dropdown */
+.rep-filter-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 28px 5px 10px;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235a7077' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  transition: border-color 0.12s;
+}
+.rep-filter-select:hover  { border-color: var(--border-sub); }
+.rep-filter-select:focus  { outline: none; border-color: var(--green); box-shadow: 0 0 0 2px var(--green-dim); }
+
 /* Filter chips */
 .filter-wrap {
   display: flex;
