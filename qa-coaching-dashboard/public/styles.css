@@ -1411,12 +1411,3 @@ canvas { max-width: 100%; }
   .trends-charts-row { grid-template-columns: 1fr; }
 }
 
-/* Dark card variant for trend charts */
-.card-dark {
-  background: #0e1e30;
-  border-color: rgba(255,255,255,0.1);
-}
-.card-dark .card-title,
-.card-title-light {
-  color: #ddeeff;
-}

@@ -16,7 +16,7 @@ const AMBER     = '#cdb52d';
 const RED       = '#df786d';
 const BLUE_INFO = '#2d7ab9';
 
-// ── Inline Chart.js plugin: white % labels inside grouped bars ──
+// ── Inline Chart.js plugin: % labels inside tall bars, above short ones ──
 const barLabelPlugin = {
   id: 'barLabels',
   afterDatasetsDraw(chart) {
@@ -28,13 +28,21 @@ const barLabelPlugin = {
         const value = dataset.data[j];
         if (value === null || value === undefined || value === 0) return;
         const barHeight = Math.abs(bar.y - bar.base);
-        if (barHeight < 18) return; // skip bars too small to label
+        if (barHeight < 2) return; // truly zero-height bar — skip
         ctx.save();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.font = 'bold 10px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(value + '%', bar.x, bar.y + 4);
+        if (barHeight < 22) {
+          // Short bar: render above in dark muted colour
+          ctx.fillStyle = '#5a7077';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(value + '%', bar.x, bar.y - 2);
+        } else {
+          // Normal bar: render inside near top in white
+          ctx.fillStyle = '#ffffff';
+          ctx.textBaseline = 'top';
+          ctx.fillText(value + '%', bar.x, bar.y + 4);
+        }
         ctx.restore();
       });
     });
@@ -1829,12 +1837,21 @@ function mtdBucket() {
 }
 
 // Shared Chart.js options for dark-card trend charts
-function trendsChartOptions(xAxisLabel) {
+// Calculate a sensible y-axis min from an array of Chart.js datasets
+function trendsMinY(datasets) {
+  const vals = datasets.flatMap(d => d.data || []).filter(v => v !== null && v !== undefined && !isNaN(v));
+  if (!vals.length) return 0;
+  const m = Math.min(...vals);
+  return Math.max(0, Math.floor(m / 5) * 5 - 5);
+}
+
+function trendsChartOptions(xAxisLabel, minY) {
   return {
     responsive: true,
     maintainAspectRatio: false,
+    layout: { padding: { top: 20 } }, // headroom for above-bar labels on short bars
     plugins: {
-      legend: { display: true, labels: { color: '#b8cfe0', font: { size: 12 }, padding: 14 } },
+      legend: { display: true, labels: { color: '#5a7077', font: { size: 12 }, padding: 14 } },
       tooltip: {
         callbacks: {
           label: ctx => ctx.parsed.y !== null
@@ -1845,15 +1862,15 @@ function trendsChartOptions(xAxisLabel) {
     },
     scales: {
       x: {
-        grid: { color: 'rgba(255,255,255,0.07)' },
-        ticks: { color: '#8fb5cc' },
-        title: { display: true, text: xAxisLabel, color: '#8fb5cc', font: { size: 11 } },
+        grid: { color: 'rgba(0,0,0,0.06)' },
+        ticks: { color: '#5a7077', maxRotation: 30, font: { size: 10 } },
+        title: { display: true, text: xAxisLabel, color: '#5a7077', font: { size: 11 } },
       },
       y: {
-        min: 50,
+        min: minY !== undefined ? minY : 0,
         max: 100,
-        grid: { color: 'rgba(255,255,255,0.07)' },
-        ticks: { color: '#8fb5cc', callback: v => v + '%' },
+        grid: { color: 'rgba(0,0,0,0.06)' },
+        ticks: { color: '#5a7077', callback: v => v + '%' },
       },
     },
   };
@@ -1901,78 +1918,75 @@ function buildTrends() {
   }
 
   // ── Chart 1: Overall QA Score per LOB ──────────────────
-  const LOB_COLORS = { Cold: '#1e3a6e', Recycled: '#5ba8d4', Campaigns: '#5050d0' };
+  // Use the same colours as the LOB badge pills: BLUE_INFO / AMBER / GREEN
+  const LOB_COLORS = { Cold: BLUE_INFO, Recycled: AMBER, Campaigns: GREEN };
   const lobs = ['Cold', 'Recycled', 'Campaigns'];
+
+  const lobDatasets = lobs.map(lob => ({
+    label: lob,
+    data: allBuckets.map(bucket => {
+      const lobCalls = allCalls.filter(({ r, rubric }) =>
+        normalizeLOB(val(r, rubric === 'booked' ? B.LOB : N.LOB)) === lob
+      );
+      return scoreInBucket(lobCalls, bucket);
+    }),
+    backgroundColor: LOB_COLORS[lob],
+    borderRadius: 3,
+    borderSkipped: false,
+  }));
 
   destroyChart('trends-lob');
   charts['trends-lob'] = new Chart(el('chart-trends-lob'), {
     type: 'bar',
     plugins: [barLabelPlugin],
-    data: {
-      labels: allBuckets.map(b => b.label),
-      datasets: lobs.map(lob => ({
-        label: lob,
-        data: allBuckets.map(bucket => {
-          const lobCalls = allCalls.filter(({ r, rubric }) =>
-            normalizeLOB(val(r, rubric === 'booked' ? B.LOB : N.LOB)) === lob
-          );
-          return scoreInBucket(lobCalls, bucket);
-        }),
-        backgroundColor: LOB_COLORS[lob],
-        borderRadius: 3,
-        borderSkipped: false,
-      })),
-    },
-    options: trendsChartOptions('Week Beginning'),
+    data: { labels: allBuckets.map(b => b.label), datasets: lobDatasets },
+    options: trendsChartOptions('Week Beginning', trendsMinY(lobDatasets)),
   });
 
   // ── Chart 2: Booked vs. Unbooked score (4 weeks only, no MTD) ──
+  const bookingDatasets = [
+    {
+      label: 'Booked (BLT)',
+      data: wkBuckets.map(b => scoreInBucket(allBooked.map(r => ({ r, rubric: 'booked' })), b)),
+      backgroundColor: BLUE_INFO,
+      borderRadius: 3, borderSkipped: false,
+    },
+    {
+      label: 'No Booking',
+      data: wkBuckets.map(b => scoreInBucket(allNB.map(r => ({ r, rubric: 'nb' })), b)),
+      backgroundColor: AMBER,
+      borderRadius: 3, borderSkipped: false,
+    },
+  ];
+
   destroyChart('trends-booking');
   charts['trends-booking'] = new Chart(el('chart-trends-booking'), {
     type: 'bar',
     plugins: [barLabelPlugin],
-    data: {
-      labels: wkBuckets.map(b => b.label),
-      datasets: [
-        {
-          label: 'Booked (BLT)',
-          data: wkBuckets.map(b => scoreInBucket(allBooked.map(r => ({ r, rubric: 'booked' })), b)),
-          backgroundColor: '#2a57cc',
-          borderRadius: 3, borderSkipped: false,
-        },
-        {
-          label: 'No Booking',
-          data: wkBuckets.map(b => scoreInBucket(allNB.map(r => ({ r, rubric: 'nb' })), b)),
-          backgroundColor: '#0d1b3a',
-          borderRadius: 3, borderSkipped: false,
-        },
-      ],
-    },
-    options: trendsChartOptions('Call Status'),
+    data: { labels: wkBuckets.map(b => b.label), datasets: bookingDatasets },
+    options: trendsChartOptions('Call Status', trendsMinY(bookingDatasets)),
   });
 
   // ── Chart 3: Section scores WoW + MTD ─────────────────
-  const SECTION_COLORS = ['#1e3a6e', '#5ba8d4', '#5050d0'];
   const SECTIONS = [
-    { label: 'Opener',    bIdx: B.OP_PCT, nIdx: N.OP_PCT  },
-    { label: 'Discovery', bIdx: B.DC_PCT, nIdx: N.DC_PCT  },
-    { label: 'Pitch/Obj', bIdx: B.PT_PCT, nIdx: N.OB_PCT  },
+    { label: 'Opener',    color: BLUE_INFO, bIdx: B.OP_PCT, nIdx: N.OP_PCT },
+    { label: 'Discovery', color: AMBER,     bIdx: B.DC_PCT, nIdx: N.DC_PCT },
+    { label: 'Pitch/Obj', color: GREEN,     bIdx: B.PT_PCT, nIdx: N.OB_PCT },
   ];
+
+  const sectionDatasets = SECTIONS.map(sec => ({
+    label: sec.label,
+    data: allBuckets.map(b => sectionScoreInBucket(allCalls, sec.bIdx, sec.nIdx, b)),
+    backgroundColor: sec.color,
+    borderRadius: 3, borderSkipped: false,
+  }));
 
   destroyChart('trends-sections');
   charts['trends-sections'] = new Chart(el('chart-trends-sections'), {
     type: 'bar',
     plugins: [barLabelPlugin],
-    data: {
-      labels: allBuckets.map(b => b.label),
-      datasets: SECTIONS.map((sec, i) => ({
-        label: sec.label,
-        data: allBuckets.map(b => sectionScoreInBucket(allCalls, sec.bIdx, sec.nIdx, b)),
-        backgroundColor: SECTION_COLORS[i],
-        borderRadius: 3, borderSkipped: false,
-      })),
-    },
-    options: trendsChartOptions('Week Beginning'),
+    data: { labels: allBuckets.map(b => b.label), datasets: sectionDatasets },
+    options: trendsChartOptions('Week Beginning', trendsMinY(sectionDatasets)),
   });
 }
 
