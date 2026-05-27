@@ -1384,3 +1384,39 @@ canvas { max-width: 100%; }
   color: var(--text);
   white-space: nowrap;
 }
+
+/* ════════════════════════════════════════════════════════
+   TRENDS TAB
+   ════════════════════════════════════════════════════════ */
+.trends-header {
+  margin-bottom: 20px;
+}
+.trends-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--heading);
+  margin-bottom: 4px;
+}
+.trends-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.trends-charts-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1100px) {
+  .trends-charts-row { grid-template-columns: 1fr; }
+}
+
+/* Dark card variant for trend charts */
+.card-dark {
+  background: #0e1e30;
+  border-color: rgba(255,255,255,0.1);
+}
+.card-dark .card-title,
+.card-title-light {
+  color: #ddeeff;
+}

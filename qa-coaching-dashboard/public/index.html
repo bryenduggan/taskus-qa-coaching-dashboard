@@ -78,6 +78,7 @@
       <button class="tab-btn" data-tab="manager">Manager View</button>
       <button class="tab-btn" data-tab="rep">Rep Detail</button>
       <button class="tab-btn" data-tab="reviewer">Reviewer</button>
+      <button class="tab-btn" data-tab="trends">Trends</button>
     </nav>
   </div>
 
@@ -90,6 +91,8 @@
       <button class="period-btn"        data-period="prev-week"    onclick="switchPeriod('prev-week')">Previous Week</button>
       <button class="period-btn"        data-period="mtd"          onclick="switchPeriod('mtd')">Month to Date</button>
       <button class="period-btn"        data-period="qtd"          onclick="switchPeriod('qtd')">Quarter to Date</button>
+      <button class="period-btn"        data-period="last-4-weeks" onclick="switchPeriod('last-4-weeks')">Last 4 Weeks</button>
+      <button class="period-btn"        data-period="last-month"   onclick="switchPeriod('last-month')">Last Month</button>
       <span id="period-range-label" class="period-range-label"></span>
       <span class="filter-bar-divider"></span>
       <span class="period-label">Reviewer:</span>
@@ -261,6 +264,34 @@
           <div class="card">
             <h3 class="card-title">Avg Score by Reviewer</h3>
             <canvas id="chart-rv-dist" height="220"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TRENDS TAB ── -->
+    <div id="tab-trends" class="tab-panel hidden">
+      <div class="trends-header">
+        <h2 class="trends-title">Performance Trends</h2>
+        <p class="trends-subtitle">All charts use the full scored call history regardless of the period filter. Weeks begin Monday.</p>
+      </div>
+      <div class="trends-charts-row">
+        <div class="card card-dark">
+          <h3 class="card-title card-title-light">Overall QA Score per LOB</h3>
+          <div style="position:relative;height:320px">
+            <canvas id="chart-trends-lob"></canvas>
+          </div>
+        </div>
+        <div class="card card-dark">
+          <h3 class="card-title card-title-light">Booked vs. Unbooked Score</h3>
+          <div style="position:relative;height:320px">
+            <canvas id="chart-trends-booking"></canvas>
+          </div>
+        </div>
+        <div class="card card-dark">
+          <h3 class="card-title card-title-light">Top Opportunities Week on Week</h3>
+          <div style="position:relative;height:320px">
+            <canvas id="chart-trends-sections"></canvas>
           </div>
         </div>
       </div>

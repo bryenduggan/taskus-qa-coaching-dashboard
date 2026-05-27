@@ -16,6 +16,31 @@ const AMBER     = '#cdb52d';
 const RED       = '#df786d';
 const BLUE_INFO = '#2d7ab9';
 
+// ── Inline Chart.js plugin: white % labels inside grouped bars ──
+const barLabelPlugin = {
+  id: 'barLabels',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset, i) => {
+      const meta = chart.getDatasetMeta(i);
+      if (meta.hidden) return;
+      meta.data.forEach((bar, j) => {
+        const value = dataset.data[j];
+        if (value === null || value === undefined || value === 0) return;
+        const barHeight = Math.abs(bar.y - bar.base);
+        if (barHeight < 18) return; // skip bars too small to label
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(value + '%', bar.x, bar.y + 4);
+        ctx.restore();
+      });
+    });
+  },
+};
+
 function scoreColor(pct) { return pct >= 80 ? GREEN : pct >= 65 ? AMBER : RED; }
 function scoreClass(pct) { return pct >= 80 ? 'green' : pct >= 65 ? 'amber' : 'red'; }
 
@@ -579,6 +604,16 @@ function getPeriodBounds(period) {
   if (period === 'qtd') {
     const q = Math.floor(today.getMonth() / 3);
     return { start: new Date(today.getFullYear(), q * 3, 1), end: today };
+  }
+  if (period === 'last-4-weeks') {
+    const start = new Date(today); start.setDate(today.getDate() - 27);
+    return { start, end: today };
+  }
+  if (period === 'last-month') {
+    return {
+      start: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+      end:   new Date(today.getFullYear(), today.getMonth(), 0),
+    };
   }
   return null;
 }
@@ -1768,6 +1803,180 @@ function buildDetailHTML(r, rubric) {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  TRENDS TAB
+// ════════════════════════════════════════════════════════════════
+
+// Week buckets with "WB MM/DD" labels, starting from N weeks ago
+function trendWeekBuckets(n) {
+  const thisMon = isoMonday(new Date());
+  const buckets = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const start = new Date(thisMon); start.setDate(thisMon.getDate() - i * 7);
+    const end   = new Date(start);   end.setDate(start.getDate() + 6);
+    const mm = String(start.getMonth() + 1).padStart(2, '0');
+    const dd = String(start.getDate()).padStart(2, '0');
+    buckets.push({ label: `WB ${mm}/${dd}`, start, end });
+  }
+  return buckets;
+}
+
+// Current month-to-date bucket
+function mtdBucket() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthName = today.toLocaleString('default', { month: 'short' });
+  return { label: `${monthName} MTD`, start, end: today };
+}
+
+// Shared Chart.js options for dark-card trend charts
+function trendsChartOptions(xAxisLabel) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: true, labels: { color: '#b8cfe0', font: { size: 12 }, padding: 14 } },
+      tooltip: {
+        callbacks: {
+          label: ctx => ctx.parsed.y !== null
+            ? `${ctx.dataset.label}: ${ctx.parsed.y}%`
+            : `${ctx.dataset.label}: —`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.07)' },
+        ticks: { color: '#8fb5cc' },
+        title: { display: true, text: xAxisLabel, color: '#8fb5cc', font: { size: 11 } },
+      },
+      y: {
+        min: 50,
+        max: 100,
+        grid: { color: 'rgba(255,255,255,0.07)' },
+        ticks: { color: '#8fb5cc', callback: v => v + '%' },
+      },
+    },
+  };
+}
+
+function buildTrends() {
+  if (!dataCache) return;
+
+  // Use ALL rows (ignore period / reviewer filter — trends need full history)
+  const allBooked = dataCache.bookedRows;
+  const allNB     = dataCache.nbRows;
+  const allCalls  = [
+    ...allBooked.map(r => ({ r, rubric: 'booked' })),
+    ...allNB.map(r     => ({ r, rubric: 'nb'     })),
+  ];
+
+  const wkBuckets  = trendWeekBuckets(4);
+  const mtd        = mtdBucket();
+  const allBuckets = [...wkBuckets, mtd];
+
+  // Average OVERALL score for a set of {r,rubric} calls within a date bucket
+  function scoreInBucket(calls, bucket) {
+    const scores = calls
+      .filter(({ r, rubric }) => {
+        if (isAutofailRow(r, rubric)) return false;
+        const d = parseDateStr(val(r, rubric === 'booked' ? B.DATE_SCORED : N.DATE_SCORED));
+        return d && d >= bucket.start && d <= bucket.end;
+      })
+      .map(({ r }) => pct(r, B.OVERALL))
+      .filter(n => n !== null);
+    return scores.length ? avg(scores) : null;
+  }
+
+  // Average a specific section score for a bucket
+  function sectionScoreInBucket(calls, bIdx, nIdx, bucket) {
+    const scores = calls
+      .filter(({ r, rubric }) => {
+        if (isAutofailRow(r, rubric)) return false;
+        const d = parseDateStr(val(r, rubric === 'booked' ? B.DATE_SCORED : N.DATE_SCORED));
+        return d && d >= bucket.start && d <= bucket.end;
+      })
+      .map(({ r, rubric }) => rubric === 'booked' ? pct(r, bIdx) : (nIdx !== null ? pct(r, nIdx) : null))
+      .filter(n => n !== null);
+    return scores.length ? avg(scores) : null;
+  }
+
+  // ── Chart 1: Overall QA Score per LOB ──────────────────
+  const LOB_COLORS = { Cold: '#1e3a6e', Recycled: '#5ba8d4', Campaigns: '#5050d0' };
+  const lobs = ['Cold', 'Recycled', 'Campaigns'];
+
+  destroyChart('trends-lob');
+  charts['trends-lob'] = new Chart(el('chart-trends-lob'), {
+    type: 'bar',
+    plugins: [barLabelPlugin],
+    data: {
+      labels: allBuckets.map(b => b.label),
+      datasets: lobs.map(lob => ({
+        label: lob,
+        data: allBuckets.map(bucket => {
+          const lobCalls = allCalls.filter(({ r, rubric }) =>
+            normalizeLOB(val(r, rubric === 'booked' ? B.LOB : N.LOB)) === lob
+          );
+          return scoreInBucket(lobCalls, bucket);
+        }),
+        backgroundColor: LOB_COLORS[lob],
+        borderRadius: 3,
+        borderSkipped: false,
+      })),
+    },
+    options: trendsChartOptions('Week Beginning'),
+  });
+
+  // ── Chart 2: Booked vs. Unbooked score (4 weeks only, no MTD) ──
+  destroyChart('trends-booking');
+  charts['trends-booking'] = new Chart(el('chart-trends-booking'), {
+    type: 'bar',
+    plugins: [barLabelPlugin],
+    data: {
+      labels: wkBuckets.map(b => b.label),
+      datasets: [
+        {
+          label: 'Booked (BLT)',
+          data: wkBuckets.map(b => scoreInBucket(allBooked.map(r => ({ r, rubric: 'booked' })), b)),
+          backgroundColor: '#2a57cc',
+          borderRadius: 3, borderSkipped: false,
+        },
+        {
+          label: 'No Booking',
+          data: wkBuckets.map(b => scoreInBucket(allNB.map(r => ({ r, rubric: 'nb' })), b)),
+          backgroundColor: '#0d1b3a',
+          borderRadius: 3, borderSkipped: false,
+        },
+      ],
+    },
+    options: trendsChartOptions('Call Status'),
+  });
+
+  // ── Chart 3: Section scores WoW + MTD ─────────────────
+  const SECTION_COLORS = ['#1e3a6e', '#5ba8d4', '#5050d0'];
+  const SECTIONS = [
+    { label: 'Opener',    bIdx: B.OP_PCT, nIdx: N.OP_PCT  },
+    { label: 'Discovery', bIdx: B.DC_PCT, nIdx: N.DC_PCT  },
+    { label: 'Pitch/Obj', bIdx: B.PT_PCT, nIdx: N.OB_PCT  },
+  ];
+
+  destroyChart('trends-sections');
+  charts['trends-sections'] = new Chart(el('chart-trends-sections'), {
+    type: 'bar',
+    plugins: [barLabelPlugin],
+    data: {
+      labels: allBuckets.map(b => b.label),
+      datasets: SECTIONS.map((sec, i) => ({
+        label: sec.label,
+        data: allBuckets.map(b => sectionScoreInBucket(allCalls, sec.bIdx, sec.nIdx, b)),
+        backgroundColor: SECTION_COLORS[i],
+        borderRadius: 3, borderSkipped: false,
+      })),
+    },
+    options: trendsChartOptions('Week Beginning'),
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
 //  TAB SWITCHING
 // ════════════════════════════════════════════════════════════════
 let dataCache = null;
@@ -1788,6 +1997,7 @@ function showTab(tabId) {
     'lob':        () => buildLOB(bookedRows, nbRows),
     'manager':    () => buildManager(bookedRows, nbRows),
     'reviewer':   () => buildReviewer(bookedRows, nbRows),
+    'trends':     () => buildTrends(),
   };
   if (builders[tabId] && !builtTabs.has(tabId)) {
     builders[tabId]();
