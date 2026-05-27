@@ -16,38 +16,8 @@ const AMBER     = '#cdb52d';
 const RED       = '#df786d';
 const BLUE_INFO = '#2d7ab9';
 
-// ── Inline Chart.js plugin: % labels inside tall bars, above short ones ──
-const barLabelPlugin = {
-  id: 'barLabels',
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    chart.data.datasets.forEach((dataset, i) => {
-      const meta = chart.getDatasetMeta(i);
-      if (meta.hidden) return;
-      meta.data.forEach((bar, j) => {
-        const value = dataset.data[j];
-        if (value === null || value === undefined || value === 0) return;
-        const barHeight = Math.abs(bar.y - bar.base);
-        if (barHeight < 2) return; // truly zero-height bar — skip
-        ctx.save();
-        ctx.font = 'bold 10px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        if (barHeight < 22) {
-          // Short bar: render above in dark muted colour
-          ctx.fillStyle = '#5a7077';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(value + '%', bar.x, bar.y - 2);
-        } else {
-          // Normal bar: render inside near top in white
-          ctx.fillStyle = '#ffffff';
-          ctx.textBaseline = 'top';
-          ctx.fillText(value + '%', bar.x, bar.y + 4);
-        }
-        ctx.restore();
-      });
-    });
-  },
-};
+// barLabelPlugin removed — chartjs-plugin-datalabels (loaded via CDN) handles
+// all Trends bar labels with per-dataset staggered offsets so labels never collide.
 
 function scoreColor(pct) { return pct >= 80 ? GREEN : pct >= 65 ? AMBER : RED; }
 function scoreClass(pct) { return pct >= 80 ? 'green' : pct >= 65 ? 'amber' : 'red'; }
@@ -1849,8 +1819,18 @@ function trendsChartOptions(xAxisLabel, minY) {
   return {
     responsive: true,
     maintainAspectRatio: false,
-    layout: { padding: { top: 20 } }, // headroom for above-bar labels on short bars
+    // Top padding = space for staggered labels above the tallest group of bars
+    // Dataset 2 offset is 22px + ~12px font height = 34px needed at minimum
+    layout: { padding: { top: 42 } },
     plugins: {
+      // Base datalabels config — per-dataset config (offset, color) takes precedence
+      datalabels: {
+        anchor: 'end',
+        align: 'end',
+        font: { weight: 'bold', size: 10, family: 'Inter, sans-serif' },
+        formatter: v => (v !== null && v !== undefined) ? v + '%' : null,
+        clamp: true,
+      },
       legend: { display: true, labels: { color: '#5a7077', font: { size: 12 }, padding: 14 } },
       tooltip: {
         callbacks: {
@@ -1919,10 +1899,14 @@ function buildTrends() {
 
   // ── Chart 1: Overall QA Score per LOB ──────────────────
   // Use the same colours as the LOB badge pills: BLUE_INFO / AMBER / GREEN
+  // Per-dataset datalabels offsets are STAGGERED (2 → 12 → 22px) so that
+  // Cold / Recycled / Campaigns labels in the same group sit at three distinct
+  // heights — even when all three bars have identical values they can never collide.
   const LOB_COLORS = { Cold: BLUE_INFO, Recycled: AMBER, Campaigns: GREEN };
   const lobs = ['Cold', 'Recycled', 'Campaigns'];
+  const DL_OFFSETS_3 = [2, 12, 22]; // 10px gap between each stagger step
 
-  const lobDatasets = lobs.map(lob => ({
+  const lobDatasets = lobs.map((lob, i) => ({
     label: lob,
     data: allBuckets.map(bucket => {
       const lobCalls = allCalls.filter(({ r, rubric }) =>
@@ -1933,36 +1917,41 @@ function buildTrends() {
     backgroundColor: LOB_COLORS[lob],
     borderRadius: 3,
     borderSkipped: false,
+    datalabels: { offset: DL_OFFSETS_3[i], color: '#5a7077' },
   }));
 
   destroyChart('trends-lob');
   charts['trends-lob'] = new Chart(el('chart-trends-lob'), {
     type: 'bar',
-    plugins: [barLabelPlugin],
+    plugins: [ChartDataLabels],
     data: { labels: allBuckets.map(b => b.label), datasets: lobDatasets },
     options: trendsChartOptions('Week Beginning', trendsMinY(lobDatasets)),
   });
 
   // ── Chart 2: Booked vs. Unbooked score (4 weeks only, no MTD) ──
+  const DL_OFFSETS_2 = [2, 12];
+
   const bookingDatasets = [
     {
       label: 'Booked (BLT)',
       data: wkBuckets.map(b => scoreInBucket(allBooked.map(r => ({ r, rubric: 'booked' })), b)),
       backgroundColor: BLUE_INFO,
       borderRadius: 3, borderSkipped: false,
+      datalabels: { offset: DL_OFFSETS_2[0], color: '#5a7077' },
     },
     {
       label: 'No Booking',
       data: wkBuckets.map(b => scoreInBucket(allNB.map(r => ({ r, rubric: 'nb' })), b)),
       backgroundColor: AMBER,
       borderRadius: 3, borderSkipped: false,
+      datalabels: { offset: DL_OFFSETS_2[1], color: '#5a7077' },
     },
   ];
 
   destroyChart('trends-booking');
   charts['trends-booking'] = new Chart(el('chart-trends-booking'), {
     type: 'bar',
-    plugins: [barLabelPlugin],
+    plugins: [ChartDataLabels],
     data: { labels: wkBuckets.map(b => b.label), datasets: bookingDatasets },
     options: trendsChartOptions('Call Status', trendsMinY(bookingDatasets)),
   });
@@ -1974,17 +1963,18 @@ function buildTrends() {
     { label: 'Pitch/Obj', color: GREEN,     bIdx: B.PT_PCT, nIdx: N.OB_PCT },
   ];
 
-  const sectionDatasets = SECTIONS.map(sec => ({
+  const sectionDatasets = SECTIONS.map((sec, i) => ({
     label: sec.label,
     data: allBuckets.map(b => sectionScoreInBucket(allCalls, sec.bIdx, sec.nIdx, b)),
     backgroundColor: sec.color,
     borderRadius: 3, borderSkipped: false,
+    datalabels: { offset: DL_OFFSETS_3[i], color: '#5a7077' },
   }));
 
   destroyChart('trends-sections');
   charts['trends-sections'] = new Chart(el('chart-trends-sections'), {
     type: 'bar',
-    plugins: [barLabelPlugin],
+    plugins: [ChartDataLabels],
     data: { labels: allBuckets.map(b => b.label), datasets: sectionDatasets },
     options: trendsChartOptions('Week Beginning', trendsMinY(sectionDatasets)),
   });
