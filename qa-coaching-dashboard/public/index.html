@@ -297,6 +297,43 @@
           </div>
         </div>
       </div>
+
+      <!-- ① WoW Delta Summary ─────────────────────────── -->
+      <div class="trends-section-sep">Week-on-Week Changes</div>
+      <div class="card trends-full-card">
+        <h3 class="card-title">WoW Delta <span class="card-subtitle-muted">last 2 completed weeks vs each other</span></h3>
+        <div id="trends-delta-table"></div>
+      </div>
+
+      <!-- ② Autofail Trend  +  ③ Rep Tier Distribution ── -->
+      <div class="trends-section-sep">Coaching Signals</div>
+      <div class="trends-charts-row trends-row-2">
+        <div class="card">
+          <h3 class="card-title">Autofail Count by Week &amp; LOB</h3>
+          <div style="position:relative;height:240px">
+            <canvas id="chart-trends-af"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Rep Tier Distribution <span class="card-subtitle-muted">% of reps per coaching zone</span></h3>
+          <div id="trends-tier-chart"></div>
+        </div>
+      </div>
+
+      <!-- ④ Section Heatmap  +  ⑤ Manager Pod Lines ───── -->
+      <div class="trends-section-sep">Deep Dives</div>
+      <div class="trends-charts-row trends-row-2">
+        <div class="card">
+          <h3 class="card-title">Section Score Heatmap</h3>
+          <div id="trends-heatmap"></div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Manager Pod Trends</h3>
+          <div style="position:relative;height:260px">
+            <canvas id="chart-trends-pods"></canvas>
+          </div>
+        </div>
+      </div>
     </div>
 
   </main>

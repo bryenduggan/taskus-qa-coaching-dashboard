@@ -1411,3 +1411,161 @@ canvas { max-width: 100%; }
   .trends-charts-row { grid-template-columns: 1fr; }
 }
 
+
+/* ── Trends additions ────────────────────────────────── */
+.trends-full-card {
+  margin-bottom: 24px;
+}
+.trends-section-sep {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 10px 2px;
+}
+.trends-row-2 {
+  grid-template-columns: 1fr 1fr !important;
+}
+@media (max-width: 900px) {
+  .trends-row-2 { grid-template-columns: 1fr !important; }
+}
+.card-subtitle-muted {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+/* WoW Delta Table */
+.trends-delta-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.trends-delta-tbl th {
+  text-align: left;
+  padding: 5px 10px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.trends-delta-tbl td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f0ead9;
+  color: var(--text);
+  font-weight: 600;
+}
+.trends-delta-tbl tr:last-child td { border-bottom: none; }
+.tdelta { font-weight: 700; }
+.tdelta-up   { color: #3d7200; }
+.tdelta-down { color: #a82018; }
+.tdelta-flat { color: var(--text-muted); }
+
+/* Autofail trend chart uses existing card + canvas sizing */
+
+/* Rep Tier Distribution */
+.trends-tier-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.trends-tier-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 70px;
+  flex-shrink: 0;
+}
+.trends-tier-bar-bg {
+  display: flex;
+  flex: 1;
+  height: 26px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.trends-tier-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #fff;
+  transition: width 0.3s ease;
+}
+.tier-green { background: #5a9e2a; }
+.tier-amber { background: #cdb52d; color: #3a2e00; }
+.tier-red   { background: #df786d; }
+.trends-tier-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.tier-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* Section Heatmap */
+.trends-hm-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.trends-hm-tbl th {
+  padding: 4px 8px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+.trends-hm-tbl th.hm-row-header { text-align: left; }
+.trends-hm-tbl td {
+  padding: 6px 8px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  border-radius: 3px;
+}
+.trends-hm-tbl td.hm-row-label {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+  padding-right: 10px;
+  font-size: 0.8125rem;
+}
+.trends-hm-tbl td.hm-trend {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.hm-green   { background: #d6f0b8; color: #3d7a10; }
+.hm-amber   { background: #fdf0b8; color: #7a5800; }
+.hm-red     { background: #fde0de; color: #a82018; }
+.hm-neutral { background: #f0ead9; color: var(--text-muted); }
+.hm-legend {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.hm-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.hm-green-swatch { background: #d6f0b8; border: 1px solid #b8e090; }
+.hm-amber-swatch { background: #fdf0b8; border: 1px solid #e8d870; }
+.hm-red-swatch   { background: #fde0de; border: 1px solid #f0b8b4; }

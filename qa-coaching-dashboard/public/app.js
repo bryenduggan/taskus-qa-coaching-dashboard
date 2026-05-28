@@ -1978,6 +1978,276 @@ function buildTrends() {
     data: { labels: allBuckets.map(b => b.label), datasets: sectionDatasets },
     options: trendsChartOptions('Week Beginning', trendsMinY(sectionDatasets)),
   });
+
+  // ═══════════════════════════════════════════════════════════════
+  //  NEW TRENDS ADDITIONS (2–6)
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── Helper: autofail count in bucket for a specific LOB ────────
+  function afCountForLOB(lob, bucket) {
+    let n = 0;
+    allBooked.forEach(r => {
+      if (!isYes(r, B.AF_TRIG)) return;
+      if (normalizeLOB(val(r, B.LOB)) !== lob) return;
+      const d = parseDateStr(val(r, B.DATE_SCORED));
+      if (d && d >= bucket.start && d <= bucket.end) n++;
+    });
+    allNB.forEach(r => {
+      if (!isYes(r, N.AF_TRIG)) return;
+      if (normalizeLOB(val(r, N.LOB)) !== lob) return;
+      const d = parseDateStr(val(r, N.DATE_SCORED));
+      if (d && d >= bucket.start && d <= bucket.end) n++;
+    });
+    return n;
+  }
+
+  // ── ① WoW Delta Summary ──────────────────────────────────────
+  const prevWk = wkBuckets[wkBuckets.length - 2];
+  const currWk = wkBuckets[wkBuckets.length - 1];
+
+  function deltaCell(curr, prev) {
+    if (curr === null || prev === null) return '<td class="tdelta tdelta-flat">—</td>';
+    const d = Math.round(curr - prev);
+    if (d > 0) return `<td class="tdelta tdelta-up">▲ +${d}%</td>`;
+    if (d < 0) return `<td class="tdelta tdelta-down">▼ ${d}%</td>`;
+    return `<td class="tdelta tdelta-flat">— 0%</td>`;
+  }
+
+  const deltaRows = lobs.map(lob => {
+    const lobCalls = allCalls.filter(({ r, rubric }) =>
+      normalizeLOB(val(r, rubric === 'booked' ? B.LOB : N.LOB)) === lob
+    );
+    const sP  = scoreInBucket(lobCalls, prevWk);
+    const sC  = scoreInBucket(lobCalls, currWk);
+    const opP = sectionScoreInBucket(lobCalls, B.OP_PCT, N.OP_PCT, prevWk);
+    const opC = sectionScoreInBucket(lobCalls, B.OP_PCT, N.OP_PCT, currWk);
+    const dcP = sectionScoreInBucket(lobCalls, B.DC_PCT, N.DC_PCT, prevWk);
+    const dcC = sectionScoreInBucket(lobCalls, B.DC_PCT, N.DC_PCT, currWk);
+    const ptP = sectionScoreInBucket(lobCalls, B.PT_PCT, N.OB_PCT, prevWk);
+    const ptC = sectionScoreInBucket(lobCalls, B.PT_PCT, N.OB_PCT, currWk);
+    const afP = afCountForLOB(lob, prevWk);
+    const afC = afCountForLOB(lob, currWk);
+    const afDelta = afC - afP;
+    const afCls   = afDelta < 0 ? 'tdelta-up' : afDelta > 0 ? 'tdelta-down' : 'tdelta-flat';
+    const afSign  = afDelta > 0 ? '+' : '';
+    const valCell = v => v !== null ? `<td>${Math.round(v)}%</td>` : '<td>—</td>';
+    const badgeCls = lob === 'Cold' ? 'lob-cold' : lob === 'Recycled' ? 'lob-recycled' : 'lob-campaigns';
+    return `<tr>
+      <td><span class="lob-badge ${badgeCls}">${lob}</span></td>
+      ${valCell(sP)}${valCell(sC)}${deltaCell(sC, sP)}
+      ${deltaCell(opC, opP)}${deltaCell(dcC, dcP)}${deltaCell(ptC, ptP)}
+      <td class="tdelta ${afCls}">${afP} → ${afC}${afDelta !== 0 ? ` (${afSign}${afDelta})` : ''}</td>
+    </tr>`;
+  }).join('');
+
+  el('trends-delta-table').innerHTML = `
+    <table class="trends-delta-tbl">
+      <thead><tr>
+        <th>LOB</th>
+        <th>${prevWk.label}</th>
+        <th>${currWk.label}</th>
+        <th>Δ Overall</th>
+        <th>Δ Opener</th>
+        <th>Δ Discovery</th>
+        <th>Δ Pitch/Obj</th>
+        <th>Autofails</th>
+      </tr></thead>
+      <tbody>${deltaRows}</tbody>
+    </table>`;
+
+  // ── ② Autofail Trend by Week & LOB ──────────────────────────
+  const afDatasets = lobs.map((lob, i) => ({
+    label: lob,
+    data: wkBuckets.map(b => afCountForLOB(lob, b)),
+    backgroundColor: LOB_COLORS[lob],
+    borderRadius: 3, borderSkipped: false,
+    datalabels: {
+      offset: DL_OFFSETS_3[i],
+      color: '#5a7077',
+      formatter: v => (v > 0) ? String(v) : null,
+    },
+  }));
+
+  destroyChart('trends-af');
+  charts['trends-af'] = new Chart(el('chart-trends-af'), {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: { labels: wkBuckets.map(b => b.label), datasets: afDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 30 } },
+      plugins: {
+        datalabels: {
+          anchor: 'end', align: 'end',
+          font: { weight: 'bold', size: 10, family: 'Inter, sans-serif' },
+          clamp: true,
+        },
+        legend: { display: true, labels: { color: '#5a7077', font: { size: 11 }, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}` } },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#5a7077', font: { size: 10 } } },
+        y: {
+          min: 0,
+          ticks: { color: '#5a7077', stepSize: 1, precision: 0 },
+          grid: { color: 'rgba(0,0,0,0.06)' },
+          title: { display: true, text: 'Autofail Count', color: '#5a7077', font: { size: 11 } },
+        },
+      },
+    },
+  });
+
+  // ── ③ Rep Tier Distribution (stacked bar per week) ──────────
+  const tierRows = wkBuckets.map(bucket => {
+    const repScores = {};
+    allBooked.forEach(r => {
+      if (isAutofailRow(r, 'booked')) return;
+      const d = parseDateStr(val(r, B.DATE_SCORED));
+      if (!d || d < bucket.start || d > bucket.end) return;
+      const agent = val(r, B.AGENT); if (!agent) return;
+      const s = pct(r, B.OVERALL); if (s === null) return;
+      if (!repScores[agent]) repScores[agent] = [];
+      repScores[agent].push(s);
+    });
+    allNB.forEach(r => {
+      if (isAutofailRow(r, 'nb')) return;
+      const d = parseDateStr(val(r, N.DATE_SCORED));
+      if (!d || d < bucket.start || d > bucket.end) return;
+      const agent = val(r, N.AGENT); if (!agent) return;
+      const s = pct(r, N.OVERALL); if (s === null) return;
+      if (!repScores[agent]) repScores[agent] = [];
+      repScores[agent].push(s);
+    });
+    const avgs  = Object.values(repScores).map(sc => avg(sc)).filter(s => s !== null);
+    const total = avgs.length;
+    if (!total) return { label: bucket.label, green: 0, amber: 0, red: 0, total: 0 };
+    return {
+      label: bucket.label,
+      green: Math.round(avgs.filter(s => s >= 80).length / total * 100),
+      amber: Math.round(avgs.filter(s => s >= 65 && s < 80).length / total * 100),
+      red:   Math.round(avgs.filter(s => s  < 65).length / total * 100),
+      total,
+    };
+  });
+
+  el('trends-tier-chart').innerHTML = tierRows.map(row => `
+    <div class="trends-tier-row">
+      <div class="trends-tier-label">${row.label}</div>
+      <div class="trends-tier-bar-bg">
+        ${row.green > 0 ? `<div class="trends-tier-seg tier-green"  style="width:${row.green}%">${row.green > 8 ? row.green + '%' : ''}</div>` : ''}
+        ${row.amber > 0 ? `<div class="trends-tier-seg tier-amber" style="width:${row.amber}%">${row.amber > 8 ? row.amber + '%' : ''}</div>` : ''}
+        ${row.red   > 0 ? `<div class="trends-tier-seg tier-red"   style="width:${row.red}%">${row.red   > 8 ? row.red   + '%' : ''}</div>` : ''}
+      </div>
+    </div>`).join('') +
+    `<div class="trends-tier-legend">
+      <span><span class="tier-dot" style="background:#8acc33;"></span> ≥ 80%</span>
+      <span><span class="tier-dot" style="background:#cdb52d;"></span> 65–79%</span>
+      <span><span class="tier-dot" style="background:#df786d;"></span> &lt; 65%</span>
+    </div>`;
+
+  // ── ④ Section Score Heatmap ──────────────────────────────────
+  const HEATMAP_SECS = [
+    { label: 'Opener',      bIdx: B.OP_PCT, nIdx: N.OP_PCT },
+    { label: 'Discovery',   bIdx: B.DC_PCT, nIdx: N.DC_PCT },
+    { label: 'Pitch / Obj', bIdx: B.PT_PCT, nIdx: N.OB_PCT },
+    { label: 'Next Step',   bIdx: B.NS_PCT, nIdx: null      }, // BLT only
+    { label: 'General',     bIdx: B.GN_PCT, nIdx: null      }, // BLT only
+  ];
+
+  function hmCls(v) {
+    if (v === null) return 'hm-neutral';
+    return v >= 80 ? 'hm-green' : v >= 65 ? 'hm-amber' : 'hm-red';
+  }
+
+  function trendArrow(scores) {
+    const nn = scores.filter(s => s !== null);
+    if (nn.length < 2) return '<span style="color:#9ab5bc">→</span>';
+    const diff = nn[nn.length - 1] - nn[nn.length - 2];
+    if (diff >  1) return '<span style="color:#5a9e2a;font-weight:700">↑</span>';
+    if (diff < -1) return '<span style="color:#c85a50;font-weight:700">↓</span>';
+    return '<span style="color:#9ab5bc">→</span>';
+  }
+
+  const hmBodyRows = HEATMAP_SECS.map(sec => {
+    const scores = wkBuckets.map(b => sectionScoreInBucket(allCalls, sec.bIdx, sec.nIdx, b));
+    const cells  = scores.map(v => `<td class="${hmCls(v)}">${v !== null ? Math.round(v) + '%' : '—'}</td>`).join('');
+    return `<tr><td class="hm-row-label">${sec.label}</td>${cells}<td class="hm-trend">${trendArrow(scores)}</td></tr>`;
+  }).join('');
+
+  el('trends-heatmap').innerHTML = `
+    <table class="trends-hm-tbl">
+      <thead><tr>
+        <th class="hm-row-header">Section</th>
+        ${wkBuckets.map(b => `<th>${b.label}</th>`).join('')}
+        <th>Trend</th>
+      </tr></thead>
+      <tbody>${hmBodyRows}</tbody>
+    </table>
+    <div class="hm-legend">
+      <span class="hm-swatch hm-green-swatch"></span>≥ 80%
+      <span class="hm-swatch hm-amber-swatch" style="margin-left:10px"></span>65–79%
+      <span class="hm-swatch hm-red-swatch"   style="margin-left:10px"></span>&lt; 65%
+    </div>`;
+
+  // ── ⑤ Manager Pod Trend Lines ────────────────────────────────
+  const POD_COLORS  = [BLUE_INFO, AMBER, GREEN, RED, '#9b59b6'];
+  const managerList = Object.keys(MANAGER_MAP);
+
+  const podDatasets = managerList.map((mgr, i) => ({
+    label: mgr.split(' ')[0],  // First name only for legend
+    data: wkBuckets.map(bucket => {
+      const scores = [];
+      allBooked.forEach(r => {
+        if (isAutofailRow(r, 'booked')) return;
+        if (REP_TO_MANAGER[val(r, B.AGENT)] !== mgr) return;
+        const d = parseDateStr(val(r, B.DATE_SCORED));
+        if (!d || d < bucket.start || d > bucket.end) return;
+        const s = pct(r, B.OVERALL); if (s !== null) scores.push(s);
+      });
+      allNB.forEach(r => {
+        if (isAutofailRow(r, 'nb')) return;
+        if (REP_TO_MANAGER[val(r, N.AGENT)] !== mgr) return;
+        const d = parseDateStr(val(r, N.DATE_SCORED));
+        if (!d || d < bucket.start || d > bucket.end) return;
+        const s = pct(r, N.OVERALL); if (s !== null) scores.push(s);
+      });
+      return scores.length ? avg(scores) : null;
+    }),
+    borderColor: POD_COLORS[i % POD_COLORS.length],
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 4,
+    pointBackgroundColor: POD_COLORS[i % POD_COLORS.length],
+    tension: 0.3,
+    spanGaps: true,
+  }));
+
+  destroyChart('trends-pods');
+  charts['trends-pods'] = new Chart(el('chart-trends-pods'), {
+    type: 'line',
+    data: { labels: wkBuckets.map(b => b.label), datasets: podDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#5a7077', font: { size: 11 }, padding: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.parsed.y !== null
+              ? `${ctx.dataset.label}: ${ctx.parsed.y}%`
+              : `${ctx.dataset.label}: —`,
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { color: '#5a7077', font: { size: 10 } } },
+        y: {
+          min: 0, max: 100,
+          ticks: { color: '#5a7077', callback: v => v + '%' },
+          grid: { color: 'rgba(0,0,0,0.06)' },
+        },
+      },
+    },
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2000,7 +2270,11 @@ function showTab(tabId) {
     'call-log':   () => buildCallLog(bookedRows, nbRows),
     'lob':        () => buildLOB(bookedRows, nbRows),
     'manager':    () => buildManager(bookedRows, nbRows),
-    'reviewer':   () => buildReviewer(bookedRows, nbRows),
+    // Reviewer tab always uses full unfiltered data — comparing reviewer quality
+    // should not be affected by which week the period filter is set to. Derek's
+    // human rows store call date as DATE_SCORED; if period is "Current Week" and
+    // Derek scored calls last week they'd silently disappear. Full cache avoids this.
+    'reviewer':   () => buildReviewer(dataCache.bookedRows, dataCache.nbRows),
     'trends':     () => buildTrends(),
   };
   if (builders[tabId] && !builtTabs.has(tabId)) {
