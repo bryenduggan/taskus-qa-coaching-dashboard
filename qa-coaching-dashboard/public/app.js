@@ -2251,6 +2251,318 @@ function buildTrends() {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  CALIBRATION TAB
+// ════════════════════════════════════════════════════════════════
+
+// Item definitions per rubric — each item has a label, column index, and section name
+const CAL_BLT_ITEMS = [
+  { label: 'Intro',          idx: B.OP_INTRO,        section: 'Opener'     },
+  { label: 'Purpose',        idx: B.OP_PURPOSE,       section: 'Opener'     },
+  { label: 'Context',        idx: B.OP_CONTEXT,       section: 'Opener'     },
+  { label: 'Industry',       idx: B.OP_INDUSTRY,      section: 'Opener'     },
+  { label: 'Company Size',   idx: B.OP_COMPANY_SIZE,  section: 'Opener'     },
+  { label: 'Process',        idx: B.DC_PROC,          section: 'Discovery'  },
+  { label: 'Pain',           idx: B.DC_PAIN,          section: 'Discovery'  },
+  { label: 'Economic Buyer', idx: B.DC_ECON,          section: 'Discovery'  },
+  { label: 'Implicit Need',  idx: B.DC_IMPLICIT,      section: 'Discovery'  },
+  { label: 'Urgency',        idx: B.DC_URG,           section: 'Discovery'  },
+  { label: 'Restate Pain',   idx: B.PT_RESTATE,       section: 'Pitch'      },
+  { label: 'Present Solution',idx: B.PT_PRESENT,      section: 'Pitch'      },
+  { label: 'Estimate',       idx: B.NS_EST,           section: 'Next Step'  },
+  { label: 'Confirm',        idx: B.NS_CONFIRM,       section: 'Next Step'  },
+  { label: 'Recap',          idx: B.NS_RECAP,         section: 'Next Step'  },
+  { label: 'Additional',     idx: B.NS_ADDL,          section: 'Next Step'  },
+  { label: 'LT Close',       idx: B.NS_CLOSE_LT,      section: 'Next Step'  },
+  { label: 'BK Close',       idx: B.NS_CLOSE_BK,      section: 'Next Step'  },
+  { label: 'Objection',      idx: B.GN_OBJ,           section: 'General'    },
+  { label: 'Communication',  idx: B.GN_COMM,          section: 'General'    },
+  { label: 'Acknowledgment', idx: B.GN_ACK,           section: 'General'    },
+];
+
+const CAL_NB_ITEMS = [
+  { label: 'Hook',           idx: N.OP_HOOK,          section: 'Opener'     },
+  { label: 'Purpose',        idx: N.OP_PURPOSE,       section: 'Opener'     },
+  { label: 'Context',        idx: N.OP_CONTEXT,       section: 'Opener'     },
+  { label: 'Right Person',   idx: N.OP_RIGHT_PERSON,  section: 'Opener'     },
+  { label: 'Process',        idx: N.DC_PROC,          section: 'Discovery'  },
+  { label: 'Pain',           idx: N.DC_PAIN,          section: 'Discovery'  },
+  { label: 'Position',       idx: N.DC_POSITION,      section: 'Discovery'  },
+  { label: 'Reason',         idx: N.OB_REASON,        section: 'Objection'  },
+  { label: 'Value',          idx: N.OB_VALUE,         section: 'Objection'  },
+  { label: 'Pivot',          idx: N.OB_PIVOT,         section: 'Objection'  },
+  { label: 'Clarify',        idx: N.OB_CLARIFY,       section: 'Objection'  },
+  { label: 'Pacing',         idx: N.OB_PACING,        section: 'Objection'  },
+  { label: 'Respect',        idx: N.OB_RESPECT,       section: 'Objection'  },
+];
+
+// Normalise a Yes/No/N/A cell value to a canonical string
+function calNorm(v) {
+  const s = String(v || '').toLowerCase().trim();
+  if (s === 'yes') return 'Yes';
+  if (s === 'no')  return 'No';
+  if (s === 'na' || s === 'n/a' || s === '') return 'N/A';
+  return 'N/A';
+}
+
+// Find all duplicate calls (same call ID, different reviewers)
+// Returns array of { callId, rubric, rows, items, agent, reviewers, agreeCount, totalCount, sectionStats }
+function findCalibrationCalls(bookedRows, nbRows) {
+  const groups = {};
+  const addRow = (r, rubric, items) => {
+    const cid = val(r, rubric === 'booked' ? B.CALL_ID : N.CALL_ID);
+    if (!cid) return;
+    const key = rubric + '::' + cid;
+    if (!groups[key]) groups[key] = { callId: cid, rubric, items, rows: [] };
+    groups[key].rows.push(r);
+  };
+  bookedRows.forEach(r => addRow(r, 'booked', CAL_BLT_ITEMS));
+  nbRows.forEach(r    => addRow(r, 'nb',     CAL_NB_ITEMS));
+
+  const results = [];
+  Object.values(groups).forEach(g => {
+    if (g.rows.length < 2) return;
+    // Check if there are at least 2 distinct reviewers
+    const reviewerSet = new Set(g.rows.map(r => {
+      const idx = g.rubric === 'booked' ? B.REVIEWED_BY : N.REVIEWED_BY;
+      return val(r, idx) || 'Unknown';
+    }));
+    if (reviewerSet.size < 2) return;
+
+    const reviewers = [...reviewerSet];
+    const agentIdx  = g.rubric === 'booked' ? B.AGENT : N.AGENT;
+    const agent     = val(g.rows[0], agentIdx) || '—';
+
+    // Item-level comparison — compare all pairs of reviewers per item
+    let agreeCount = 0, totalCount = 0;
+    const sectionAgreements = {};  // sectionName → { agree, total }
+    const itemResults = g.items.map(item => {
+      const values = g.rows.map(r => calNorm(r[item.idx]));
+      const revVals = g.rows.map(r => ({
+        reviewer: val(r, g.rubric === 'booked' ? B.REVIEWED_BY : N.REVIEWED_BY) || 'Unknown',
+        value: calNorm(r[item.idx]),
+      }));
+      // Skip comparison if any reviewer gave N/A
+      const nonNA = revVals.filter(rv => rv.value !== 'N/A');
+      let agree = null;
+      if (nonNA.length >= 2) {
+        const uniqueVals = new Set(nonNA.map(rv => rv.value));
+        agree = uniqueVals.size === 1;
+        totalCount++;
+        if (!sectionAgreements[item.section]) sectionAgreements[item.section] = { agree: 0, total: 0 };
+        sectionAgreements[item.section].total++;
+        if (agree) {
+          agreeCount++;
+          sectionAgreements[item.section].agree++;
+        }
+      }
+      return { label: item.label, section: item.section, revVals, agree };
+    });
+
+    // Top mismatch item (first mismatch found, ordered by section)
+    const mismatches = itemResults.filter(i => i.agree === false);
+    const topMismatch = mismatches.length ? mismatches[0].section + ' — ' + mismatches[0].label : null;
+
+    results.push({
+      callId: g.callId,
+      rubric: g.rubric,
+      agent,
+      reviewers,
+      agreeCount,
+      totalCount,
+      agreePct: totalCount > 0 ? Math.round(agreeCount / totalCount * 100) : null,
+      topMismatch,
+      itemResults,
+      sectionAgreements,
+    });
+  });
+
+  // Sort by agreePct ascending (most disagreement first)
+  results.sort((a, b) => (a.agreePct ?? 101) - (b.agreePct ?? 101));
+  return results;
+}
+
+let _calUid = 0;
+
+function buildCalibration() {
+  if (!dataCache) return;
+  const allBooked = dataCache.bookedRows;
+  const allNB     = dataCache.nbRows;
+
+  const calCalls = findCalibrationCalls(allBooked, allNB);
+
+  // ── KPI cards ──────────────────────────────────────────────────
+  const totalDups    = calCalls.length;
+  const allAgree     = calCalls.reduce((s, c) => s + c.agreeCount, 0);
+  const allTotal     = calCalls.reduce((s, c) => s + c.totalCount, 0);
+  const overallPct   = allTotal > 0 ? Math.round(allAgree / allTotal * 100) : null;
+
+  // Most divergent section across all duplicate calls
+  const sectionTotals = {};
+  calCalls.forEach(c => {
+    Object.entries(c.sectionAgreements).forEach(([sec, { agree, total }]) => {
+      if (!sectionTotals[sec]) sectionTotals[sec] = { agree: 0, total: 0 };
+      sectionTotals[sec].agree += agree;
+      sectionTotals[sec].total += total;
+    });
+  });
+  let mostDivergentSec = '—';
+  let lowestPct = 101;
+  Object.entries(sectionTotals).forEach(([sec, { agree, total }]) => {
+    if (total < 2) return;  // need at least 2 comparisons to call it meaningful
+    const p = Math.round(agree / total * 100);
+    if (p < lowestPct) { lowestPct = p; mostDivergentSec = sec; }
+  });
+
+  const kpisEl = el('calib-kpis');
+  if (kpisEl) {
+    kpisEl.innerHTML = [
+      { n: String(totalDups), l: 'Duplicate calls scored' },
+      { n: overallPct !== null ? overallPct + '%' : '—', l: 'Item agreement rate' },
+      { n: mostDivergentSec, l: 'Most divergent section' },
+    ].map(({ n, l }) => `
+      <div class="kpi-card">
+        <div class="kpi-value">${esc(n)}</div>
+        <div class="kpi-label">${esc(l)}</div>
+      </div>`).join('');
+  }
+
+  const countEl = el('calib-call-count');
+  if (countEl) countEl.textContent = totalDups ? `${totalDups} calls` : '';
+
+  // ── Section alignment chart ──────────────────────────────────
+  const sections = Object.keys(sectionTotals).filter(s => sectionTotals[s].total >= 1);
+  const sectionPcts = sections.map(s => Math.round(sectionTotals[s].agree / sectionTotals[s].total * 100));
+  const sectionColors = sectionPcts.map(p => p >= 80 ? GREEN : p >= 65 ? AMBER : RED);
+
+  destroyChart('calib-align');
+  const alignCanvas = el('chart-calib-align');
+  if (alignCanvas && sections.length) {
+    charts['calib-align'] = new Chart(alignCanvas, {
+      type: 'bar',
+      data: {
+        labels: sections,
+        datasets: [{
+          data: sectionPcts,
+          backgroundColor: sectionColors,
+          borderRadius: 4,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: ctx => `${ctx.raw}% agreement` },
+          },
+        },
+        scales: {
+          x: {
+            min: 0, max: 100,
+            ticks: { color: '#5a7077', callback: v => v + '%' },
+            grid: { color: 'rgba(0,0,0,0.06)' },
+          },
+          y: {
+            ticks: { color: '#5a7077', font: { size: 11 } },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  } else if (alignCanvas) {
+    alignCanvas.parentElement.innerHTML = '<p class="calib-empty">No duplicate calls found yet.</p>';
+  }
+
+  // ── Call list ────────────────────────────────────────────────
+  const listEl = el('calib-call-list');
+  if (!listEl) return;
+
+  if (!calCalls.length) {
+    listEl.innerHTML = '<p class="calib-empty">No calls have been scored by multiple reviewers yet.</p>';
+    return;
+  }
+
+  const rows = calCalls.map(c => {
+    const uid    = `calib-exp-${++_calUid}`;
+    const pctCls = c.agreePct === null ? '' : c.agreePct >= 80 ? 'calib-agree-green' : c.agreePct >= 65 ? 'calib-agree-amber' : 'calib-agree-red';
+    const pctTxt = c.agreePct !== null ? c.agreePct + '%' : '—';
+    const rubricBadge = c.rubric === 'booked'
+      ? '<span class="calib-rubric-badge calib-rubric-blt">BLT</span>'
+      : '<span class="calib-rubric-badge calib-rubric-nb">NB</span>';
+    const reviewerList = c.reviewers.join(' · ');
+    const topMM = c.topMismatch ? `<span class="calib-top-mm">${esc(c.topMismatch)}</span>` : '<span style="color:var(--text-dim)">—</span>';
+    const revLink = `${REVENUE_IO_BASE}${esc(c.callId)}`;
+
+    // Build expandable item table
+    const sections = [...new Set(c.itemResults.map(i => i.section))];
+    const itemTableRows = sections.map(sec => {
+      const secItems = c.itemResults.filter(i => i.section === sec);
+      const secRows = secItems.map(item => {
+        const cls = item.agree === false ? 'calib-item-mismatch'
+                  : item.agree === true  ? 'calib-item-agree'
+                  : 'calib-item-na';
+        const revCells = item.revVals.map(rv =>
+          `<td class="${rv.value === 'Yes' ? 'calib-val-yes' : rv.value === 'No' ? 'calib-val-no' : 'calib-val-na'}">${esc(rv.value)}</td>`
+        ).join('');
+        return `<tr class="${cls}">
+          <td class="calib-item-label">${esc(item.label)}</td>
+          ${revCells}
+        </tr>`;
+      }).join('');
+      return `<tr class="calib-section-hdr"><td colspan="${2 + c.reviewers.length}">${esc(sec)}</td></tr>${secRows}`;
+    }).join('');
+
+    const reviewerHeaders = c.reviewers.map(rv => `<th>${esc(rv)}</th>`).join('');
+
+    const detailHTML = `
+      <tr class="calib-detail-row hidden" id="${uid}">
+        <td colspan="6">
+          <div class="calib-detail-wrap">
+            <table class="calib-item-tbl">
+              <thead><tr><th>Item</th>${reviewerHeaders}</tr></thead>
+              <tbody>${itemTableRows}</tbody>
+            </table>
+          </div>
+        </td>
+      </tr>`;
+
+    return `
+      <tr class="calib-row" onclick="toggleCalibRow('${uid}', this)">
+        <td><a href="${revLink}" target="_blank" onclick="event.stopPropagation()" class="cl-link">${esc(c.callId)}</a></td>
+        <td>${esc(c.agent)}</td>
+        <td>${rubricBadge}</td>
+        <td>${esc(reviewerList)}</td>
+        <td><span class="${pctCls}">${pctTxt}</span></td>
+        <td>${topMM}</td>
+      </tr>${detailHTML}`;
+  }).join('');
+
+  listEl.innerHTML = `
+    <table class="calib-tbl">
+      <thead>
+        <tr>
+          <th>Call ID</th>
+          <th>Agent</th>
+          <th>Rubric</th>
+          <th>Reviewers</th>
+          <th>Agreement</th>
+          <th>Top mismatch</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function toggleCalibRow(uid, rowEl) {
+  const detail = el(uid);
+  if (!detail) return;
+  const isOpen = detail.classList.toggle('hidden');
+  rowEl.classList.toggle('calib-row-open', !isOpen);
+}
+
+// ════════════════════════════════════════════════════════════════
 //  TAB SWITCHING
 // ════════════════════════════════════════════════════════════════
 let dataCache = null;
@@ -2275,7 +2587,10 @@ function showTab(tabId) {
     // human rows store call date as DATE_SCORED; if period is "Current Week" and
     // Derek scored calls last week they'd silently disappear. Full cache avoids this.
     'reviewer':   () => buildReviewer(dataCache.bookedRows, dataCache.nbRows),
-    'trends':     () => buildTrends(),
+    'trends':        () => buildTrends(),
+    // Calibration always uses full unfiltered cache — duplicate detection
+    // relies on seeing both AI and human rows for the same call IDs.
+    'calibration':   () => buildCalibration(),
   };
   if (builders[tabId] && !builtTabs.has(tabId)) {
     builders[tabId]();

@@ -81,6 +81,7 @@
       <button class="tab-btn" data-tab="rep">Rep Detail</button>
       <button class="tab-btn" data-tab="reviewer">Reviewer</button>
       <button class="tab-btn" data-tab="trends">Trends</button>
+      <button class="tab-btn" data-tab="calibration">Calibration</button>
     </nav>
   </div>
 
@@ -333,6 +334,40 @@
             <canvas id="chart-trends-pods"></canvas>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: CALIBRATION
+    ════════════════════════════════════════ -->
+    <div id="tab-calibration" class="tab-panel hidden">
+      <div class="trends-header">
+        <h2 class="trends-title">Calibration</h2>
+        <p class="trends-subtitle">Calls scored by multiple reviewers. Shows where AI and human scoring diverges at the item level.</p>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpi-row" id="calib-kpis"></div>
+
+      <!-- Section alignment chart + legend -->
+      <div class="calib-top-row">
+        <div class="card calib-chart-card">
+          <h3 class="card-title">Section Alignment <span class="card-subtitle-muted">% of items with matching Yes/No</span></h3>
+          <div style="position:relative;height:220px"><canvas id="chart-calib-align"></canvas></div>
+        </div>
+        <div class="card calib-legend-card">
+          <h3 class="card-title">How to read this</h3>
+          <p class="calib-help-text">Each row below is a call scored by two or more reviewers. Click any row to see item-by-item comparison — cells highlighted in red are the exact points of disagreement.</p>
+          <div class="calib-legend-row"><span class="calib-swatch calib-swatch-agree"></span><span>Agreement — both reviewers gave the same answer</span></div>
+          <div class="calib-legend-row"><span class="calib-swatch calib-swatch-mismatch"></span><span>Mismatch — reviewers disagreed on this item</span></div>
+          <div class="calib-legend-row"><span class="calib-swatch calib-swatch-na"></span><span>N/A — item not scored by one or both reviewers</span></div>
+        </div>
+      </div>
+
+      <!-- Duplicate call list -->
+      <div class="card" style="margin-top:16px">
+        <h3 class="card-title">Duplicate Scored Calls <span class="card-subtitle-muted" id="calib-call-count"></span></h3>
+        <div id="calib-call-list"></div>
       </div>
     </div>
 

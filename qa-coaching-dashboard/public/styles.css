@@ -1569,3 +1569,176 @@ canvas { max-width: 100%; }
 .hm-green-swatch { background: #d6f0b8; border: 1px solid #b8e090; }
 .hm-amber-swatch { background: #fdf0b8; border: 1px solid #e8d870; }
 .hm-red-swatch   { background: #fde0de; border: 1px solid #f0b8b4; }
+
+/* ═══════════════════════════════════════════════════════
+   CALIBRATION TAB
+   ═══════════════════════════════════════════════════════ */
+
+/* Two-column top row: chart + legend */
+.calib-top-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+@media (max-width: 900px) {
+  .calib-top-row { grid-template-columns: 1fr; }
+}
+.calib-chart-card { min-height: 260px; }
+.calib-legend-card { display: flex; flex-direction: column; gap: 10px; }
+.calib-help-text {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+.calib-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.calib-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.calib-swatch-agree   { background: #d6f0b8; border: 1px solid #b8e090; }
+.calib-swatch-mismatch{ background: #fde0de; border: 1px solid #f0b8b4; }
+.calib-swatch-na      { background: #e8e3d8; border: 1px solid #c8c2b4; }
+
+/* Empty state */
+.calib-empty {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  padding: 24px 0;
+  text-align: center;
+  margin: 0;
+}
+
+/* Main call table */
+.calib-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+.calib-tbl thead tr {
+  border-bottom: 1.5px solid var(--border);
+}
+.calib-tbl thead th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.calib-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.calib-row:hover { background: rgba(0,0,0,0.03); }
+.calib-row.calib-row-open { background: rgba(45,122,185,0.06); }
+.calib-row td {
+  padding: 9px 10px;
+  vertical-align: middle;
+}
+
+/* Agreement % coloring */
+.calib-agree-green { color: var(--green); font-weight: 600; }
+.calib-agree-amber { color: var(--amber); font-weight: 600; }
+.calib-agree-red   { color: var(--red);   font-weight: 600; }
+
+/* Rubric badge */
+.calib-rubric-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.calib-rubric-blt {
+  background: #dbeafe;
+  color: #1555a0;
+}
+.calib-rubric-nb {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+/* Top mismatch pill */
+.calib-top-mm {
+  display: inline-block;
+  background: #fde0de;
+  color: #a82018;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Expanded detail row */
+.calib-detail-row td {
+  padding: 0;
+  border-bottom: 2px solid rgba(45,122,185,0.2);
+}
+.calib-detail-row.hidden { display: none; }
+.calib-detail-wrap {
+  padding: 12px 16px 16px;
+  background: #faf7f0;
+  overflow-x: auto;
+}
+
+/* Item-level comparison table */
+.calib-item-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  min-width: 360px;
+}
+.calib-item-tbl thead th {
+  text-align: center;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.calib-item-tbl thead th:first-child { text-align: left; }
+.calib-section-hdr td {
+  padding: 8px 10px 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: #ede8dc;
+  border-top: 1px solid var(--border);
+}
+.calib-item-label {
+  padding: 5px 10px 5px 16px;
+  color: var(--text);
+}
+.calib-item-tbl td {
+  padding: 5px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.calib-item-tbl td:first-child { text-align: left; }
+
+/* Row-level agreement highlighting */
+.calib-item-mismatch { background: #fff0ee; }
+.calib-item-agree    { background: transparent; }
+.calib-item-na       { background: transparent; opacity: 0.6; }
+
+/* Value cell coloring */
+.calib-val-yes { color: #3d7200; font-weight: 600; }
+.calib-val-no  { color: #a82018; font-weight: 600; }
+.calib-val-na  { color: var(--text-dim); }
