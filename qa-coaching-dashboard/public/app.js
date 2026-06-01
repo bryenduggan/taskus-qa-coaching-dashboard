@@ -32,7 +32,7 @@ const B = {
   GN_OBJ:28, GN_COMM:29, GN_ACK:30, GN_PCT:31,
   AF_MISINFO:32, AF_RUDE:33, AF_PROF:34, AF_PII:35, AF_TRIG:36,
   CP1:37, CP2:38, CP3:39, NOTES:40, LOB:41, REVIEWED_BY:42, DATE_SCORED:43, LEAD_STATUS:44,
-  ACCOUNT_NAME:45,
+  ACCOUNT_NAME:45, MANAGER:46,
 };
 
 // ── Column indices — No Booking  (A=0 … AJ=35) ───────────────
@@ -44,11 +44,16 @@ const N = {
   AF_RUDE:22, AF_MISINFO:23, AF_LEGAL:24, AF_TRIG:25,
   DIAG1:26, DIAG2:27,
   CP1:28, CP2:29, CP3:30, NOTES:31, LOB:32, REVIEWED_BY:33, DATE_SCORED:34, LEAD_STATUS:35,
-  ACCOUNT_NAME:36,
+  ACCOUNT_NAME:36, MANAGER:37,
 };
 
-// ── Manager → Rep mapping ─────────────────────────────────────
-const MANAGER_MAP = {
+// ── LEGACY Manager → Rep mapping (FROZEN — do not edit for roster changes) ──
+// Fallback ONLY for historical rows with a blank Manager column (Booked/LT col
+// AU, No Booking col AL). New rows are stamped with their roster manager at
+// scoring time and resolved directly from that column via managerOf(). Editing
+// this map would retroactively re-ladder historical calls — it is intentionally
+// frozen to preserve past pod groupings (e.g. Kharlo's pod).
+const LEGACY_MANAGER_MAP = {
   'Grant Mendano':   ['Jessie Tatad','Eillen Mae Cruz','Franniella San Mateo','Markell Manalo',
                       'Edrian Maraya','Mark Levi Delima','Andy Heartynazck Hugo','Renz Christian Fernandez',
                       'Ma Luisa Padron'],
@@ -61,9 +66,30 @@ const MANAGER_MAP = {
   'Daizy Malate':    ['Julian Simon Babaran'],
 };
 
-// reverse lookup rep → manager
-const REP_TO_MANAGER = {};
-Object.entries(MANAGER_MAP).forEach(([mgr, reps]) => reps.forEach(r => { REP_TO_MANAGER[r] = mgr; }));
+// reverse lookup rep → legacy manager
+const LEGACY_REP_TO_MANAGER = {};
+Object.entries(LEGACY_MANAGER_MAP).forEach(([mgr, reps]) => reps.forEach(r => { LEGACY_REP_TO_MANAGER[r] = mgr; }));
+
+// Display aliases — collapse a historical pod name onto its current canonical
+// name so they render as ONE pod. (Aki Lopez is the same person as Jose Mari Lopez.)
+const MANAGER_ALIASES = { 'Aki Lopez': 'Jose Mari Lopez' };
+function canonMgr(name) { return MANAGER_ALIASES[name] || name; }
+
+const UNASSIGNED = 'Unassigned';
+
+// Resolve a row's manager:
+//   1. the stamped Manager column (roster-authoritative, written at scoring time)
+//   2. else the frozen legacy map keyed by agent name
+//   3. else 'Unassigned'
+// Always normalized through canonMgr() so aliased pods merge.
+function managerOf(row, rubric) {
+  const stamped = (row[rubric === 'booked' ? B.MANAGER : N.MANAGER] || '').toString().trim();
+  if (stamped) return canonMgr(stamped);
+  const agent  = val(row, rubric === 'booked' ? B.AGENT : N.AGENT);
+  const legacy = LEGACY_REP_TO_MANAGER[agent];
+  if (legacy) return canonMgr(legacy);
+  return UNASSIGNED;
+}
 
 // ── LOB normaliser ────────────────────────────────────────────
 function normalizeLOB(raw) {
@@ -1070,12 +1096,13 @@ function buildManager(bookedRows, nbRows) {
 
   // Aggregate per manager
   const mgrData = {};
-  Object.keys(MANAGER_MAP).forEach(mgr => { mgrData[mgr] = { calls: [], reps: {} }; });
+  // Seed with the frozen legacy pods (canonicalized) so historical groupings persist
+  Object.keys(LEGACY_MANAGER_MAP).forEach(mgr => { mgrData[canonMgr(mgr)] = { calls: [], reps: {} }; });
 
   allCalls.forEach(({ r, rubric }) => {
-    const agent = val(r, 1);
-    const mgr   = REP_TO_MANAGER[agent];
-    if (!mgr) return;
+    const agent = val(r, rubric === 'booked' ? B.AGENT : N.AGENT);
+    const mgr   = managerOf(r, rubric);
+    if (!mgrData[mgr]) mgrData[mgr] = { calls: [], reps: {} };
     mgrData[mgr].calls.push({ r, rubric });
     if (!mgrData[mgr].reps[agent]) mgrData[mgr].reps[agent] = { scores: [], calls: 0 };
     mgrData[mgr].reps[agent].calls++;
@@ -1096,15 +1123,14 @@ function buildManager(bookedRows, nbRows) {
       const mgrAvg = scores.length ? avg(scores) : null;
       if (!d.calls.length) return null;
       const firstName = mgr.split(' ')[0];
-      return kpiCard(`${firstName}'s Pod`, mgrAvg !== null ? `${mgrAvg}%` : '—', `${d.calls.length} calls · ${MANAGER_MAP[mgr].length} reps`, mgrAvg !== null ? scoreClass(mgrAvg) : 'amber');
+      return kpiCard(`${firstName}'s Pod`, mgrAvg !== null ? `${mgrAvg}%` : '—', `${d.calls.length} calls · ${Object.keys(d.reps).length} reps`, mgrAvg !== null ? scoreClass(mgrAvg) : 'amber');
     }),
   ].filter(Boolean).join('');
 
   const grid = el('mgr-grid');
   grid.innerHTML = '';
 
-  Object.entries(MANAGER_MAP).forEach(([mgr, repList]) => {
-    const d       = mgrData[mgr];
+  Object.entries(mgrData).forEach(([mgr, d]) => {
     if (!d.calls.length) return;
     const scores  = d.calls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
     const mgrAvg  = scores.length ? avg(scores) : null;
@@ -1122,8 +1148,9 @@ function buildManager(bookedRows, nbRows) {
       ['Pitch/Obj', podSec(B.PT_PCT, N.OB_PCT)],
     ].filter(([, v]) => v !== null);
 
-    // Reps — sorted lowest avg first (coaching priority)
-    const repRows = repList.map(rep => {
+    // Reps — sorted lowest avg first (coaching priority).
+    // Dynamic: list the reps actually observed under this manager this period.
+    const repRows = Object.keys(d.reps).map(rep => {
       const rd = d.reps[rep] || { scores: [], calls: 0 };
       return { name: rep, avg: rd.scores.length ? avg(rd.scores) : null, calls: rd.calls };
     }).sort((a, b) => {
@@ -1137,7 +1164,7 @@ function buildManager(bookedRows, nbRows) {
       <div class="mgr-card-header">
         <div>
           <div class="mgr-name">${esc(mgr)}</div>
-          <div class="mgr-meta">${d.calls.length} call${d.calls.length!==1?'s':''} · ${repList.length} reps</div>
+          <div class="mgr-meta">${d.calls.length} call${d.calls.length!==1?'s':''} · ${Object.keys(d.reps).length} reps</div>
         </div>
         <div class="mgr-score-block">
           <span class="mgr-score" style="color:${mgrAvg !== null ? scoreColor(mgrAvg) : 'var(--text-dim)'}">
@@ -1325,8 +1352,9 @@ function renderRepDetail(bookedRows, nbRows, repName) {
   const allScores = allCalls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
   const repAvg    = avg(allScores);
   const afCount   = allCalls.filter(c => c.rubric === 'booked' ? isYes(c.r, B.AF_TRIG) : isYes(c.r, N.AF_TRIG)).length;
-  const manager   = REP_TO_MANAGER[repName] || '—';
   const firstCall = allCalls[0];
+  const mgrResolved = managerOf(firstCall.r, firstCall.rubric);
+  const manager   = mgrResolved === UNASSIGNED ? '—' : mgrResolved;
   const lobRaw    = val(firstCall.r, firstCall.rubric === 'booked' ? B.LOB : N.LOB);
   const lob       = normalizeLOB(lobRaw) || lobRaw || '—';
   currentRepLob   = lob;
@@ -2192,8 +2220,13 @@ function buildTrends() {
     </div>`;
 
   // ── ⑤ Manager Pod Trend Lines ────────────────────────────────
-  const POD_COLORS  = [BLUE_INFO, AMBER, GREEN, RED, '#9b59b6'];
-  const managerList = Object.keys(MANAGER_MAP);
+  const POD_COLORS  = [BLUE_INFO, AMBER, GREEN, RED, '#9b59b6', '#e67e22', '#1abc9c', '#e84393', '#7f8c8d'];
+  // Manager set is dynamic: frozen legacy pods (canonicalized) ∪ every manager
+  // resolved from stamped rows. 'Unassigned' is excluded from the trend chart.
+  const managerSet = new Set(Object.keys(LEGACY_MANAGER_MAP).map(canonMgr));
+  allBooked.forEach(r => managerSet.add(managerOf(r, 'booked')));
+  allNB.forEach(r => managerSet.add(managerOf(r, 'nb')));
+  const managerList = [...managerSet].filter(m => m !== UNASSIGNED);
 
   const podDatasets = managerList.map((mgr, i) => ({
     label: mgr.split(' ')[0],  // First name only for legend
@@ -2201,14 +2234,14 @@ function buildTrends() {
       const scores = [];
       allBooked.forEach(r => {
         if (isAutofailRow(r, 'booked')) return;
-        if (REP_TO_MANAGER[val(r, B.AGENT)] !== mgr) return;
+        if (managerOf(r, 'booked') !== mgr) return;
         const d = parseDateStr(val(r, B.DATE_SCORED));
         if (!d || d < bucket.start || d > bucket.end) return;
         const s = pct(r, B.OVERALL); if (s !== null) scores.push(s);
       });
       allNB.forEach(r => {
         if (isAutofailRow(r, 'nb')) return;
-        if (REP_TO_MANAGER[val(r, N.AGENT)] !== mgr) return;
+        if (managerOf(r, 'nb') !== mgr) return;
         const d = parseDateStr(val(r, N.DATE_SCORED));
         if (!d || d < bucket.start || d > bucket.end) return;
         const s = pct(r, N.OVERALL); if (s !== null) scores.push(s);
