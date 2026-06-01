@@ -1094,16 +1094,18 @@ function buildManager(bookedRows, nbRows) {
     ...Object.entries(mgrData).map(([mgr, d]) => {
       const scores = d.calls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
       const mgrAvg = scores.length ? avg(scores) : null;
+      if (!d.calls.length) return null;
       const firstName = mgr.split(' ')[0];
       return kpiCard(`${firstName}'s Pod`, mgrAvg !== null ? `${mgrAvg}%` : '—', `${d.calls.length} calls · ${MANAGER_MAP[mgr].length} reps`, mgrAvg !== null ? scoreClass(mgrAvg) : 'amber');
     }),
-  ].join('');
+  ].filter(Boolean).join('');
 
   const grid = el('mgr-grid');
   grid.innerHTML = '';
 
   Object.entries(MANAGER_MAP).forEach(([mgr, repList]) => {
     const d       = mgrData[mgr];
+    if (!d.calls.length) return;
     const scores  = d.calls.filter(c => !isAutofailRow(c.r, c.rubric)).map(c => pct(c.r, B.OVERALL)).filter(n => n !== null);
     const mgrAvg  = scores.length ? avg(scores) : null;
     const afCount = d.calls.filter(c => c.rubric === 'booked' ? isYes(c.r, B.AF_TRIG) : isYes(c.r, N.AF_TRIG)).length;
@@ -2388,7 +2390,11 @@ function buildCalibration() {
   const allBooked = dataCache.bookedRows;
   const allNB     = dataCache.nbRows;
 
-  const calCalls = findCalibrationCalls(allBooked, allNB);
+  let calCalls = findCalibrationCalls(allBooked, allNB);
+  // Apply reviewer filter — show only calls where the selected reviewer participated
+  if (currentReviewer !== 'all') {
+    calCalls = calCalls.filter(c => c.reviewers.includes(currentReviewer));
+  }
 
   // ── KPI cards ──────────────────────────────────────────────────
   const totalDups    = calCalls.length;
