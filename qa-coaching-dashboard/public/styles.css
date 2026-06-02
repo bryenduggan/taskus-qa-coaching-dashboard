@@ -1742,3 +1742,37 @@ canvas { max-width: 100%; }
 .calib-val-yes { color: #3d7200; font-weight: 600; }
 .calib-val-no  { color: #a82018; font-weight: 600; }
 .calib-val-na  { color: var(--text-dim); }
+
+/* ─── Rep Performance tab ───────────────────────────────────── */
+.rp-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.rp-control { display: flex; flex-direction: column; gap: 4px; }
+.rp-control-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.rp-source-note {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: var(--text-dim);
+  align-self: center;
+}
+.rp-flag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rp-flag-green { background: var(--green-dim); color: var(--green); }
+.rp-flag-amber { background: var(--amber-dim); color: var(--amber); }
+.rp-flag-red   { background: var(--red-dim);   color: var(--red); }

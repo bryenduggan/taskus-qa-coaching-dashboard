@@ -2605,12 +2605,234 @@ function toggleCalibRow(uid, rowEl) {
 //  TAB SWITCHING
 // ════════════════════════════════════════════════════════════════
 let dataCache = null;
+// ════════════════════════════════════════════════════════════════
+//  REP PERFORMANCE TAB  — Outbound SDR Performance Tracker
+//  Hybrid: KPI cards + sortable leaderboard + QA×attainment scatter.
+//  Driven by its own month selector + manager filter (NOT the global
+//  period/reviewer filter bar, which is hidden on this tab).
+// ════════════════════════════════════════════════════════════════
+const RP = { REP:0, MGR:1, WAVE:2, DIALS:3, CONNECTS:4, OPPS:5, MRR:6, C2O:7,
+             DIAL_T:8, OPP_T:9, MRR_T:10, DIAL_PCT:11, OPP_PCT:12, MRR_PCT:13, OVERALL:14 };
+const RP_MONTH_NAMES = { Jan:'January', Feb:'February', Mar:'March', Apr:'April', May:'May', Jun:'June',
+                         Jul:'July', Aug:'August', Sep:'September', Oct:'October', Nov:'November', Dec:'December' };
+const RP_MONTH_ORDER = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let rpMonth = null;
+let rpManager = 'all';
+let rpSort = { col: 'overall', dir: 'desc' };
+
+// Strip $, %, commas → number
+function rpNum(v) {
+  if (v === undefined || v === null) return 0;
+  const n = parseFloat(String(v).replace(/[$,%\s]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+// Normalize a name to an order-independent key so "Jaca Charles Tobby" === "Charles Tobby Jaca"
+function rpNormName(n) {
+  return String(n || '').toLowerCase().replace(/[^a-z\s]/g, '').trim().split(/\s+/).filter(Boolean).sort().join(' ');
+}
+
+// Build all-time QA average per rep (autofail-excluded), keyed by normalized name
+function rpBuildQaMap() {
+  if (!dataCache) return {};
+  const acc = {};
+  const add = (rows, rubric) => rows.forEach(r => {
+    if (isAutofailRow(r, rubric)) return;
+    const s = pct(r, B.OVERALL);
+    if (s === null) return;
+    const key = rpNormName(val(r, rubric === 'booked' ? B.AGENT : N.AGENT));
+    if (!key) return;
+    (acc[key] = acc[key] || []).push(s);
+  });
+  add(dataCache.bookedRows, 'booked');
+  add(dataCache.nbRows, 'nb');
+  const out = {};
+  Object.entries(acc).forEach(([k, arr]) => { out[k] = avg(arr); });
+  return out;
+}
+
+// Parse a month's raw sheet rows into clean rep objects (active reps only)
+function rpParseMonth(monthKey, qaMap) {
+  const raw = (dataCache.sdrMonths && dataCache.sdrMonths[monthKey]) || [];
+  return raw
+    .filter(r => r && String(r[RP.REP] || '').trim() !== '')
+    .map(r => {
+      const dials = rpNum(r[RP.DIALS]);
+      const qa = qaMap[rpNormName(r[RP.REP])];
+      return {
+        rep:       String(r[RP.REP]).trim(),
+        manager:   String(r[RP.MGR] || '').trim() || '—',
+        dials,
+        connects:  rpNum(r[RP.CONNECTS]),
+        opps:      rpNum(r[RP.OPPS]),
+        mrr:       rpNum(r[RP.MRR]),
+        overall:   rpNum(r[RP.OVERALL]),
+        qa:        (qa === undefined ? null : qa),
+      };
+    })
+    // Drop placeholder/blank reps that have no activity at all
+    .filter(d => d.dials >= 100 || d.opps > 0 || d.mrr > 0);
+}
+
+function rpFlag(d, medianDials) {
+  if (d.qa !== null && d.qa >= 80 && d.overall >= 100) return { txt: 'Star', cls: 'green' };
+  if (d.qa !== null && d.qa < 65 && d.dials >= medianDials) return { txt: 'High volume · low QA', cls: 'red' };
+  if (d.qa !== null && d.qa >= 80 && d.overall < 65) return { txt: 'Quality · low output', cls: 'amber' };
+  return null;
+}
+
+function buildRepPerformance() {
+  const sdr = dataCache.sdrMonths || {};
+  const monthsWithData = RP_MONTH_ORDER.filter(m => (sdr[m] || []).some(r => r && String(r[RP.REP] || '').trim() !== ''));
+
+  if (!monthsWithData.length) {
+    el('rp-body').classList.add('hidden');
+    const empty = el('rp-empty');
+    empty.classList.remove('hidden');
+    empty.innerHTML = 'No SDR performance data loaded. The <strong>Outbound SDR Performance Tracker</strong> must be shared (Viewer) with the dashboard’s Google service account, then hit Refresh.';
+    return;
+  }
+  el('rp-empty').classList.add('hidden');
+  el('rp-body').classList.remove('hidden');
+
+  if (!rpMonth || !monthsWithData.includes(rpMonth)) rpMonth = monthsWithData[monthsWithData.length - 1];
+
+  // Month selector
+  const mSel = el('rp-month');
+  mSel.innerHTML = monthsWithData.map(m => `<option value="${m}"${m === rpMonth ? ' selected' : ''}>${RP_MONTH_NAMES[m]} 2026</option>`).join('');
+  mSel.onchange = () => { rpMonth = mSel.value; rpManager = 'all'; renderRepPerformance(); };
+
+  renderRepPerformance();
+}
+
+function renderRepPerformance() {
+  const qaMap = rpBuildQaMap();
+  const all = rpParseMonth(rpMonth, qaMap);
+
+  // Manager dropdown (from this month's data)
+  const managers = ['all', ...[...new Set(all.map(d => d.manager))].sort()];
+  const gSel = el('rp-manager');
+  if (!managers.includes(rpManager)) rpManager = 'all';
+  gSel.innerHTML = managers.map(m => `<option value="${m}"${m === rpManager ? ' selected' : ''}>${m === 'all' ? 'All managers' : esc(m)}</option>`).join('');
+  gSel.onchange = () => { rpManager = gSel.value; renderRepPerformance(); };
+
+  const rows = rpManager === 'all' ? all : all.filter(d => d.manager === rpManager);
+
+  // KPI cards
+  const sum = (k) => rows.reduce((a, d) => a + d[k], 0);
+  const avgAttain = rows.length ? Math.round(rows.reduce((a, d) => a + d.overall, 0) / rows.length) : 0;
+  const fmtK = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(Math.round(n));
+  el('rp-kpis').innerHTML = [
+    kpiCard('Active Reps', rows.length, rpManager === 'all' ? 'all pods' : esc(rpManager), 'blue'),
+    kpiCard('Total Dials', fmtK(sum('dials')), `${RP_MONTH_NAMES[rpMonth]} 2026`, 'blue'),
+    kpiCard('Opportunities', sum('opps').toLocaleString(), 'created this month', 'green'),
+    kpiCard('New MRR', '$' + Math.round(sum('mrr')).toLocaleString(), 'closed-won', 'green'),
+    kpiCard('Avg Attainment', `${avgAttain}%`, '30% dial · 30% opp · 40% MRR', avgAttain >= 100 ? 'green' : avgAttain >= 65 ? 'amber' : 'red'),
+  ].join('');
+
+  // Median dials (for volume-based flagging) over active reps in view
+  const dialsSorted = rows.map(d => d.dials).sort((a, b) => a - b);
+  const medianDials = dialsSorted.length ? dialsSorted[Math.floor(dialsSorted.length / 2)] : 0;
+  rows.forEach(d => { d._flag = rpFlag(d, medianDials); });
+
+  // ── Scatter: QA (x) vs attainment (y) ──
+  const pts = rows.filter(d => d.qa !== null).map(d => ({ x: d.qa, y: Math.round(d.overall), rep: d.rep, flag: d._flag }));
+  const ptColor = d => d.flag ? ({ green: '#3d7200', amber: '#7a5800', red: '#a82018' })[d.flag.cls] : '#1555a0';
+  destroyChart('rp-scatter');
+  const canvas = el('chart-rp-scatter');
+  if (canvas) {
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', 'Scatter plot of QA score versus sales attainment per rep');
+    const threshLines = {
+      id: 'rpThresh',
+      afterDraw(chart) {
+        const { ctx, chartArea: a, scales } = chart;
+        const xq = scales.x.getPixelForValue(65), yq = scales.y.getPixelForValue(65);
+        ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = 'rgba(90,112,119,0.45)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(xq, a.top); ctx.lineTo(xq, a.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(a.left, yq); ctx.lineTo(a.right, yq); ctx.stroke();
+        ctx.restore();
+      }
+    };
+    charts['rp-scatter'] = new Chart(canvas, {
+      type: 'scatter',
+      data: { datasets: [{ data: pts, pointRadius: 7, pointHoverRadius: 9,
+        backgroundColor: pts.map(ptColor), borderColor: '#ffffff', borderWidth: 1 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          datalabels: { display: false },
+          tooltip: { callbacks: { label: c => {
+            const p = c.raw; return `${p.rep}: QA ${p.x}% · attain ${p.y}%${p.flag ? ' · ' + p.flag.txt : ''}`;
+          } } }
+        },
+        scales: {
+          x: { title: { display: true, text: 'QA score (%)' }, min: 30, max: 100 },
+          y: { title: { display: true, text: 'Sales attainment (%)' }, min: 0, suggestedMax: 170 }
+        }
+      },
+      plugins: [threshLines]
+    });
+  }
+
+  // ── Leaderboard table ──
+  const cols = [
+    ['rep', 'Rep'], ['manager', 'Manager'], ['dials', 'Dials'], ['connects', 'Connects'],
+    ['opps', 'Opps'], ['mrr', 'New MRR'], ['overall', 'Attainment'], ['qa', 'QA Score'], ['flag', 'Flag'],
+  ];
+  const numericCols = new Set(['dials', 'connects', 'opps', 'mrr', 'overall', 'qa']);
+  el('rp-thead').innerHTML = '<tr>' + cols.map(([key, label]) => {
+    const active = rpSort.col === key ? ' cl-th-active' : '';
+    const arrow = rpSort.col === key ? (rpSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const sortable = key !== 'flag';
+    return `<th class="${sortable ? 'cl-th-sort' : ''}${active}"${sortable ? ` onclick="rpSortBy('${key}')"` : ''}>${label}${arrow}</th>`;
+  }).join('') + '</tr>';
+
+  const sorted = rows.slice().sort((a, b) => {
+    const c = rpSort.col, dir = rpSort.dir === 'asc' ? 1 : -1;
+    if (c === 'qa') { const av = a.qa === null ? -1 : a.qa, bv = b.qa === null ? -1 : b.qa; return (av - bv) * dir; }
+    if (numericCols.has(c)) return (a[c] - b[c]) * dir;
+    return String(a[c]).localeCompare(String(b[c])) * dir;
+  });
+
+  el('rp-tbody').innerHTML = sorted.map(d => {
+    const attainCls = d.overall >= 100 ? 'green' : d.overall >= 65 ? 'amber' : 'red';
+    const qaCell = d.qa === null
+      ? '<span style="color:var(--text-dim)">—</span>'
+      : `<span class="score-pill ${scoreClass(d.qa)}">${d.qa}%</span>`;
+    const flagCell = d._flag ? `<span class="rp-flag rp-flag-${d._flag.cls}">${esc(d._flag.txt)}</span>` : '';
+    return `<tr class="data-row">
+      <td style="font-weight:500">${esc(d.rep)}</td>
+      <td style="color:var(--text-muted)">${esc(d.manager)}</td>
+      <td>${d.dials.toLocaleString()}</td>
+      <td>${d.connects.toLocaleString()}</td>
+      <td>${d.opps.toLocaleString()}</td>
+      <td>$${Math.round(d.mrr).toLocaleString()}</td>
+      <td><span class="score-pill ${attainCls}">${Math.round(d.overall)}%</span></td>
+      <td>${qaCell}</td>
+      <td>${flagCell}</td>
+    </tr>`;
+  }).join('');
+
+  const flagged = rows.filter(d => d._flag).length;
+  const matched = rows.filter(d => d.qa !== null).length;
+  el('rp-meta').textContent = `${rows.length} reps · ${matched} matched to a QA score · ${flagged} flagged`;
+}
+
+function rpSortBy(col) {
+  if (rpSort.col === col) rpSort.dir = rpSort.dir === 'asc' ? 'desc' : 'asc';
+  else { rpSort.col = col; rpSort.dir = (col === 'rep' || col === 'manager') ? 'asc' : 'desc'; }
+  renderRepPerformance();
+}
+
+
 let builtTabs = new Set();
 
 function showTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
   el(`tab-${tabId}`).classList.remove('hidden');
+  const pf = el('period-filter'); if (pf) pf.classList.toggle('hidden', tabId === 'rep-performance');
   if (!dataCache) return;
   const { bookedRows, nbRows } = getFilteredData();
 
@@ -2621,6 +2843,7 @@ function showTab(tabId) {
     'call-log':   () => buildCallLog(bookedRows, nbRows),
     'lob':        () => buildLOB(bookedRows, nbRows),
     'manager':    () => buildManager(bookedRows, nbRows),
+    'rep-performance': () => buildRepPerformance(),
     // Reviewer tab always uses full unfiltered data — comparing reviewer quality
     // should not be affected by which week the period filter is set to. Derek's
     // human rows store call date as DATE_SCORED; if period is "Current Week" and
@@ -2691,7 +2914,7 @@ async function loadData() {
       if (lastScoredEl) lastScoredEl.textContent = `Last scored: ${latest}`;
     }
 
-    dataCache = { bookedRows, nbRows };
+    dataCache = { bookedRows, nbRows, sdrMonths: data.sdrMonths || {} };
     el('loading').classList.add('hidden');
     el('period-filter').classList.remove('hidden');
 

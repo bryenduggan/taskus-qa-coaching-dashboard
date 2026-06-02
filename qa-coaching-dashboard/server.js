@@ -7,6 +7,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1q2i93WKz14_KIcazfyDy9tTnXcnREo5c-ElNOr0bL-Y';
 
+// Outbound SDR Performance Tracker (separate workbook). Must be shared with the
+// same service account (Viewer). If it is NOT shared, the SDR fetch fails
+// gracefully and the rest of the dashboard still loads (sdrMonths = {}).
+const SDR_SPREADSHEET_ID = process.env.SDR_SPREADSHEET_ID || '15jRj2PBFac5-AiwDZsVxrq3YKPa6QNMxoDzRc-EI-pM';
+const SDR_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 // ─── Static files ───────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -55,11 +61,30 @@ app.get('/api/data', async (req, res) => {
       }),
     ]);
 
+    // ── SDR Performance Tracker (resilient — never blocks the QA dashboard) ──
+    // Each month is its own sheet. Header is row 3; data starts row 4.
+    // Columns A..O: Rep, Manager, Wave, Dials, Connects, Opps, MRR, C2O%,
+    // DialTarget, OppTarget, MRRTarget, Dial%, Opp%, MRR%, Overall%.
+    let sdrMonths = {};
+    try {
+      const sdrRes = await sheets.spreadsheets.values.batchGet({
+        spreadsheetId: SDR_SPREADSHEET_ID,
+        ranges: SDR_MONTHS.map(m => `${m}!A3:O`),
+      });
+      (sdrRes.data.valueRanges || []).forEach((vr, i) => {
+        sdrMonths[SDR_MONTHS[i]] = vr.values || [];
+      });
+    } catch (sdrErr) {
+      console.error('[/api/data] SDR tracker fetch failed (sheet may not be shared with the service account):', sdrErr.message);
+      sdrMonths = {};
+    }
+
     res.json({
       booked:       bookedRes.data.values       || [],
       noBooking:    noBookingRes.data.values     || [],
       humanBooked:  humanBookedRes.data.values   || [],
       humanNB:      humanNBRes.data.values       || [],
+      sdrMonths,
       fetchedAt: new Date().toISOString(),
     });
   } catch (err) {

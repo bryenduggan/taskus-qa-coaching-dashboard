@@ -78,6 +78,7 @@
       <button class="tab-btn" data-tab="call-log">Call Log</button>
       <button class="tab-btn" data-tab="lob">Executive (LOB)</button>
       <button class="tab-btn" data-tab="manager">Manager View</button>
+      <button class="tab-btn" data-tab="rep-performance">Rep Performance</button>
       <button class="tab-btn" data-tab="rep">Rep Detail</button>
       <button class="tab-btn" data-tab="reviewer">Reviewer</button>
       <button class="tab-btn" data-tab="trends">Trends</button>
@@ -238,6 +239,40 @@
     <div id="tab-manager" class="tab-panel hidden">
       <div class="kpi-row" id="mgr-kpis"></div>
       <div id="mgr-grid" class="mgr-grid"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         TAB: REP PERFORMANCE  (Outbound SDR Tracker)
+    ════════════════════════════════════════ -->
+    <div id="tab-rep-performance" class="tab-panel hidden">
+      <div class="rp-controls">
+        <div class="rp-control">
+          <label class="rp-control-label" for="rp-month">Month</label>
+          <select id="rp-month" class="rep-select"></select>
+        </div>
+        <div class="rp-control">
+          <label class="rp-control-label" for="rp-manager">Manager</label>
+          <select id="rp-manager" class="rep-select"></select>
+        </div>
+        <span class="rp-source-note">Source: Outbound SDR Performance Tracker · QA score is all-time</span>
+      </div>
+      <div id="rp-empty" class="rep-empty hidden"></div>
+      <div id="rp-body">
+        <div class="kpi-row" id="rp-kpis"></div>
+        <div class="card">
+          <h3 class="card-title">Sales attainment vs QA quality <span class="card-subtitle-muted">each dot is a rep · dashed lines = 65% thresholds</span></h3>
+          <div style="position:relative;height:340px"><canvas id="chart-rp-scatter"></canvas></div>
+        </div>
+        <div class="cl-table-wrap" style="margin-top:16px">
+          <div class="cl-overflow">
+            <table class="cl-table" id="rp-table">
+              <thead id="rp-thead"></thead>
+              <tbody id="rp-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="cl-meta" id="rp-meta"></div>
+      </div>
     </div>
 
     <!-- ════════════════════════════════════════
