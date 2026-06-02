@@ -2654,7 +2654,7 @@ function rpBuildQaMap() {
 function rpParseMonth(monthKey, qaMap) {
   const raw = (dataCache.sdrMonths && dataCache.sdrMonths[monthKey]) || [];
   return raw
-    .filter(r => r && String(r[RP.REP] || '').trim() !== '')
+    .filter(r => { const v = String((r && r[RP.REP]) || '').trim(); return v !== '' && v.toLowerCase() !== 'rep name'; })
     .map(r => {
       const dials = rpNum(r[RP.DIALS]);
       const qa = qaMap[rpNormName(r[RP.REP])];
@@ -2682,7 +2682,8 @@ function rpFlag(d, medianDials) {
 
 function buildRepPerformance() {
   const sdr = dataCache.sdrMonths || {};
-  const monthsWithData = RP_MONTH_ORDER.filter(m => (sdr[m] || []).some(r => r && String(r[RP.REP] || '').trim() !== ''));
+  const isRealRepRow = r => { const v = String((r && r[RP.REP]) || '').trim(); return v !== '' && v.toLowerCase() !== 'rep name'; };
+  const monthsWithData = RP_MONTH_ORDER.filter(m => (sdr[m] || []).some(isRealRepRow));
 
   if (!monthsWithData.length) {
     el('rp-body').classList.add('hidden');

@@ -69,7 +69,7 @@ app.get('/api/data', async (req, res) => {
     try {
       const sdrRes = await sheets.spreadsheets.values.batchGet({
         spreadsheetId: SDR_SPREADSHEET_ID,
-        ranges: SDR_MONTHS.map(m => `${m}!A3:O`),
+        ranges: SDR_MONTHS.map(m => `${m}!A4:O`),
       });
       (sdrRes.data.valueRanges || []).forEach((vr, i) => {
         sdrMonths[SDR_MONTHS[i]] = vr.values || [];
