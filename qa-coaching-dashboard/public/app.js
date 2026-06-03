@@ -1105,12 +1105,35 @@ function buildLOB(bookedRows, nbRows) {
 //  call outcome. 4-way verdict; over-credited isolated as the pipeline-
 //  integrity number with a per-rep escalation flag.
 // ════════════════════════════════════════════════════════════════
-function buildDispoAccuracy(rows) {
+function buildDispoAccuracy(allRows) {
   const kpiEl = el('dispo-kpis');
   const bodyEl = el('dispo-body');
-  if (!rows || !rows.length) {
+
+  // ── Period filter (#4) ──────────────────────────────────────────────
+  // Dispo rows carry no own date, so join Call ID → Date Scored from the AI
+  // tabs and honor the active Period picker. "All Time" shows everything.
+  let rows = allRows || [];
+  let periodLabel = 'All Time';
+  if (currentPeriod !== 'all' && dataCache) {
+    const bounds = getPeriodBounds(currentPeriod);
+    if (bounds) {
+      const dateById = {};
+      (dataCache.bookedRows || []).forEach(r => { const id = val(r, B.CALL_ID); if (id) dateById[id] = val(r, B.DATE_SCORED); });
+      (dataCache.nbRows     || []).forEach(r => { const id = val(r, N.CALL_ID); if (id && !dateById[id]) dateById[id] = val(r, N.DATE_SCORED); });
+      rows = rows.filter(r => inPeriod(dateById[val(r, D.CALL_ID)] || '', bounds));
+      const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      periodLabel = `${fmt(bounds.start)} – ${fmt(bounds.end)}`;
+    }
+  }
+
+  if (!allRows || !allRows.length) {
     if (kpiEl)  kpiEl.innerHTML = '';
     if (bodyEl) bodyEl.innerHTML = '<div class="card"><p style="color:var(--text-muted)">No disposition-accuracy data yet. It populates as calls are scored (and from the June 2026 baseline backfill).</p></div>';
+    return;
+  }
+  if (!rows.length) {
+    if (kpiEl)  kpiEl.innerHTML = '';
+    if (bodyEl) bodyEl.innerHTML = `<div class="card"><p style="color:var(--text-muted)">No disposition-accuracy data in <strong>${esc(periodLabel)}</strong>. Try a wider period (most data is in the June baseline).</p></div>`;
     return;
   }
 
@@ -1220,11 +1243,37 @@ function buildDispoAccuracy(rows) {
     </table>` : '';
 
   bodyEl.innerHTML = `
-    <div class="dispo-caveat">⚠️ <strong>Sampling note:</strong> measured only on QA-scored calls (≥~5 min, real transcripts), so "Attempt" dispositions skew under-credited by construction. The trustworthy signals are <strong>over-credited</strong> (pipeline integrity) and <strong>lateral</strong>. Showing all ${tot} logged calls.</div>
-    <div class="card"><h3 class="dispo-h">By Manager <span class="dispo-sub">mistag rate, worst first</span></h3>${mgrTable}</div>
-    <div class="card"><h3 class="dispo-h">🔴 Over-crediting Leaderboard <span class="dispo-sub">pipeline integrity · ≥${DISPO_OVER_ESCALATION} = escalate</span></h3>${overTable}</div>
-    <div class="card"><h3 class="dispo-h">By Line of Business</h3>${lobTable}</div>
-    ${logTable ? `<div class="card"><h3 class="dispo-h">Over-credited Calls <span class="dispo-sub">tagged → should be · ${overCalls.length} calls</span></h3>${logTable}</div>` : ''}
+    <div class="card">
+      <h3 class="dispo-h">What this measures <span class="dispo-sub">${tot} calls · ${esc(periodLabel)}</span></h3>
+      <div class="dispo-desc">
+        Every scored call is checked against the transcript to see whether the rep's <strong>Salesforce disposition</strong> matched what actually happened. Each call lands in one of four buckets:
+        <strong style="color:var(--green)">Accurate</strong> (tag matches reality) ·
+        <strong style="color:var(--red)">Over-credited</strong> (tagged a better outcome than happened — e.g. "Next Steps Scheduled" with no firm next step; this inflates pipeline) ·
+        <strong style="color:var(--amber)">Under-credited</strong> (tagged worse than reality — e.g. a real conversation logged as "Hang Up") ·
+        <strong style="color:var(--blue-info)">Lateral</strong> (connected but wrong sub-type — e.g. "Disqualified" used for an in-ICP prospect who simply declined).
+      </div>
+      <div class="dispo-caveat">⚠️ <strong>Sampling note:</strong> measured only on QA-scored calls (≥~5 min, real transcripts), so "Attempt" dispositions skew under-credited by construction. The most trustworthy signals are <strong>over-credited</strong> (pipeline integrity) and <strong>lateral</strong>.</div>
+    </div>
+    <div class="card">
+      <h3 class="dispo-h">By Manager <span class="dispo-sub">mistag rate, worst first</span></h3>
+      <div class="dispo-desc"><strong>How to read this:</strong> each pod's <strong>Accuracy</strong> is the share of its calls tagged correctly. The <strong>Verdict mix</strong> bar shows the split — watch the red (over-credited) segment first, since that's the pipeline-integrity risk. Rows are sorted worst-first so the pods that need coaching are on top.</div>
+      ${mgrTable}
+    </div>
+    <div class="card">
+      <h3 class="dispo-h">🔴 Over-crediting Leaderboard <span class="dispo-sub">pipeline integrity · ≥${DISPO_OVER_ESCALATION} = escalate</span></h3>
+      <div class="dispo-desc"><strong>How to use this:</strong> reps who logged a <em>better</em> outcome than the call delivered. These create no-show "meetings" downstream, so this is the number leadership should act on. A rep with <strong>≥${DISPO_OVER_ESCALATION}</strong> over-credits in the period gets a 🚩 — book a coaching conversation. Click a name to open their detail.</div>
+      ${overTable}
+    </div>
+    <div class="card">
+      <h3 class="dispo-h">By Line of Business</h3>
+      <div class="dispo-desc"><strong>How to read this:</strong> disposition accuracy split by lead source. Use it to see whether mistagging concentrates in Cold, Recycled, or Campaign lists — useful for targeting list-specific disposition training.</div>
+      ${lobTable}
+    </div>
+    ${logTable ? `<div class="card">
+      <h3 class="dispo-h">Over-credited Calls <span class="dispo-sub">tagged → should be · ${overCalls.length} calls</span></h3>
+      <div class="dispo-desc"><strong>For coaching:</strong> every over-credited call, showing what the rep tagged → what it should have been. Click a Call ID to open the recording in Revenue.io and review it with the rep.</div>
+      ${logTable}
+    </div>` : ''}
   `;
 }
 
@@ -1479,6 +1528,44 @@ function buildRepTab(bookedRows, nbRows) {
              : el('rep-content').innerHTML = `<div class="rep-empty">Select a rep above to view their performance detail.</div>`;
 }
 
+// Disposition-accuracy block for a rep's detail page (their tagging history).
+// Always all-time for the rep (their full record), independent of the period picker.
+function repDispoSection(repName) {
+  const rows = ((dataCache && dataCache.dispoRows) || []).filter(r => val(r, D.AGENT) === repName);
+  if (!rows.length) return '';
+  const c = { Accurate: 0, 'Over-credited': 0, 'Under-credited': 0, Lateral: 0 };
+  rows.forEach(r => { const v = val(r, D.VERDICT); if (c[v] !== undefined) c[v]++; });
+  const n = rows.length;
+  const accPct = Math.round(c.Accurate / n * 100);
+  const mistags = rows.filter(r => val(r, D.VERDICT) !== 'Accurate');
+  const shortDisp = t => String(t).replace('Connected - ', '').replace('Attempt - ', '').replace('Attempt -', '');
+  const lz = (txt, kind) => `<span class="dispo-lz ${kind}">${esc(shortDisp(txt))}</span>`;
+  const vcolor = { 'Over-credited': 'var(--red)', 'Under-credited': 'var(--amber)', 'Lateral': 'var(--blue-info)' };
+  const list = mistags.length ? `
+    <table class="dispo-table" style="margin-top:8px">
+      <thead><tr><th>Call</th><th>Verdict</th><th>Tagged</th><th></th><th>Should be</th></tr></thead>
+      <tbody>${mistags.map(r => `<tr>
+        <td><a class="rev-link" href="${REVENUE_IO_BASE}${esc(val(r, D.CALL_ID))}" target="_blank" rel="noopener">${esc(val(r, D.CALL_ID))}</a></td>
+        <td style="font-weight:600;font-size:0.75rem;color:${vcolor[val(r, D.VERDICT)] || 'var(--text)'}">${esc(val(r, D.VERDICT))}</td>
+        <td>${lz(val(r, D.SF_DISP), 'red')}</td>
+        <td style="color:var(--text-muted)">→</td>
+        <td>${lz(val(r, D.CORRECT), 'grn')}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<p style="color:var(--text-muted);font-size:0.8125rem;margin-top:8px">Every disposition tagged accurately. 🎉</p>';
+  return `<div class="card" style="margin-bottom:16px">
+    <h3 class="card-title">Disposition Accuracy <span style="font-weight:400;color:var(--text-muted);font-size:0.75rem">· ${n} call${n !== 1 ? 's' : ''} logged (all-time)</span></h3>
+    <div class="dispo-desc">Does this rep's Salesforce disposition match what actually happened on the call? Over-credited = they logged a better outcome than they got.</div>
+    <div class="rep-dispo-stats">
+      <div class="rep-dispo-stat"><span class="v" style="color:${scoreColor(accPct)}">${accPct}%</span><span class="l">Accurate</span></div>
+      <div class="rep-dispo-stat"><span class="v" style="color:var(--red)">${c['Over-credited']}</span><span class="l">Over-credited</span></div>
+      <div class="rep-dispo-stat"><span class="v" style="color:var(--amber)">${c['Under-credited']}</span><span class="l">Under-credited</span></div>
+      <div class="rep-dispo-stat"><span class="v" style="color:var(--blue-info)">${c.Lateral}</span><span class="l">Lateral</span></div>
+    </div>
+    ${c['Over-credited'] >= DISPO_OVER_ESCALATION ? `<div class="dispo-desc" style="color:var(--red);margin-bottom:0">🚩 ${c['Over-credited']} over-credits — flag for a disposition coaching conversation.</div>` : ''}
+    ${list}
+  </div>`;
+}
+
 function renderRepDetail(bookedRows, nbRows, repName) {
   const repB     = bookedRows.filter(r => val(r, B.AGENT) === repName);
   const repN     = nbRows.filter(r => val(r, N.AGENT) === repName);
@@ -1568,6 +1655,7 @@ function renderRepDetail(bookedRows, nbRows, repName) {
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm8-3a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 5zm0 7a1 1 0 100-2 1 1 0 000 2z" fill="currentColor"/></svg>
       <span>Only ${allCalls.length} call${allCalls.length !== 1 ? 's' : ''} scored — more data needed for a full performance picture.</span>
     </div>` : ''}
+    ${repDispoSection(repName)}
     <div class="rep-detail-grid">
       <div class="rep-col">
         <div class="card">
