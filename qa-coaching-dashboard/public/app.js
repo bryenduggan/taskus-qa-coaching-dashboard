@@ -47,6 +47,16 @@ const N = {
   ACCOUNT_NAME:36, MANAGER:37,
 };
 
+// ── Column indices — Disposition Accuracy tab (A=0 … J=9) ────
+// Standalone tab: one row per scored call comparing the rep's Salesforce
+// disposition to the actual call outcome (judged from the transcript).
+const D = {
+  CALL_ID:0, AGENT:1, MANAGER:2, LOB:3, SF_DISP:4, VERDICT:5,
+  CORRECT:6, OBSERVED:7, NOTE:8, SOURCE:9,
+};
+// A rep with this many Over-credited calls in view gets an escalation flag.
+const DISPO_OVER_ESCALATION = 3;
+
 // ── LEGACY Manager → Rep mapping (FROZEN — do not edit for roster changes) ──
 // Fallback ONLY for historical rows with a blank Manager column (Booked/LT col
 // AU, No Booking col AL). New rows are stamped with their roster manager at
@@ -1086,6 +1096,136 @@ function buildLOB(bookedRows, nbRows) {
   if (lobMap.Other.length) {
     grid.innerHTML += `<div class="lob-card lob-card-other"><div class="lob-card-header"><span class="lob-badge lob-other">Uncategorized</span><span style="color:var(--text-muted);font-size:0.75rem">${lobMap.Other.length} call${lobMap.Other.length!==1?'s':''}</span></div><div class="lob-empty">Fill "Line of Business" column to categorize.</div></div>`;
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  DISPOSITION ACCURACY TAB
+//  Reads the standalone "Disposition Accuracy" sheet tab. Each row is a
+//  scored call comparing the rep's Salesforce disposition to the actual
+//  call outcome. 4-way verdict; over-credited isolated as the pipeline-
+//  integrity number with a per-rep escalation flag.
+// ════════════════════════════════════════════════════════════════
+function buildDispoAccuracy(rows) {
+  const kpiEl = el('dispo-kpis');
+  const bodyEl = el('dispo-body');
+  if (!rows || !rows.length) {
+    if (kpiEl)  kpiEl.innerHTML = '';
+    if (bodyEl) bodyEl.innerHTML = '<div class="card"><p style="color:var(--text-muted)">No disposition-accuracy data yet. It populates as calls are scored (and from the June 2026 baseline backfill).</p></div>';
+    return;
+  }
+
+  const vget   = r => val(r, D.VERDICT);
+  const tot    = rows.length;
+  const count  = v => rows.filter(r => vget(r) === v).length;
+  const nAcc   = count('Accurate'), nOver = count('Over-credited'), nUnder = count('Under-credited'), nLat = count('Lateral');
+  const pctOf  = n => tot ? Math.round(n / tot * 1000) / 10 : 0;
+
+  kpiEl.innerHTML = [
+    kpiCard('Disposition Accuracy', pctOf(nAcc) + '%', `${nAcc}/${tot} calls accurate`, 'green'),
+    kpiCard('Over-credited', pctOf(nOver) + '%', `${nOver} calls — ⚠️ pipeline risk`, 'red'),
+    kpiCard('Under-credited', pctOf(nUnder) + '%', `${nUnder} calls`, 'amber'),
+    kpiCard('Lateral', pctOf(nLat) + '%', `${nLat} calls — wrong sub-type`, 'blue'),
+  ].join('');
+
+  const mixBar = (a, u, l, o, n) => {
+    const seg = (c, v) => v ? `<span style="width:${(v / n * 100).toFixed(1)}%;background:${c}"></span>` : '';
+    return `<div class="dispo-bar">${seg('var(--green)', a)}${seg('var(--amber)', u)}${seg('var(--blue-info)', l)}${seg('var(--red)', o)}</div>`;
+  };
+
+  function group(keyFn) {
+    const m = {};
+    rows.forEach(r => {
+      const k = keyFn(r) || '—';
+      m[k] = m[k] || { n: 0, acc: 0, over: 0, under: 0, lat: 0 };
+      m[k].n++;
+      const v = vget(r);
+      if (v === 'Accurate') m[k].acc++;
+      else if (v === 'Over-credited') m[k].over++;
+      else if (v === 'Under-credited') m[k].under++;
+      else if (v === 'Lateral') m[k].lat++;
+    });
+    return m;
+  }
+
+  // By manager — worst mistag rate first
+  const mgr = group(r => canonMgr(val(r, D.MANAGER)));
+  const mgrRows = Object.entries(mgr)
+    .map(([name, s]) => ({ name, ...s, accPct: Math.round(s.acc / s.n * 100), mistag: Math.round((s.n - s.acc) / s.n * 100) }))
+    .sort((a, b) => b.mistag - a.mistag);
+  const mgrTable = `
+    <table class="dispo-table">
+      <thead><tr><th>Manager</th><th class="c">Calls</th><th class="c">Accuracy</th><th>Verdict mix</th><th class="c">Over</th><th class="c">Under</th><th class="c">Lat</th></tr></thead>
+      <tbody>${mgrRows.map(m => `<tr>
+        <td class="nm">${esc(m.name)}</td>
+        <td class="c">${m.n}</td>
+        <td class="c" style="font-weight:700;color:${scoreColor(m.accPct)}">${m.accPct}%</td>
+        <td>${mixBar(m.acc, m.under, m.lat, m.over, m.n)}</td>
+        <td class="c" style="color:var(--red);font-weight:600">${m.over || '·'}</td>
+        <td class="c">${m.under || '·'}</td>
+        <td class="c">${m.lat || '·'}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div class="dispo-legend">
+      <span style="background:var(--green)"></span>Accurate
+      <span style="background:var(--amber)"></span>Under-credited
+      <span style="background:var(--blue-info)"></span>Lateral
+      <span style="background:var(--red)"></span>Over-credited
+    </div>`;
+
+  // Over-credit leaderboard
+  const reps = group(r => val(r, D.AGENT));
+  const overReps = Object.entries(reps)
+    .map(([name, s]) => ({ name, n: s.n, over: s.over }))
+    .filter(r => r.over > 0)
+    .sort((a, b) => b.over - a.over);
+  const overTable = overReps.length ? `
+    <table class="dispo-table">
+      <thead><tr><th>Rep</th><th class="c">Calls</th><th class="c">Over-credits</th><th></th></tr></thead>
+      <tbody>${overReps.map(r => `<tr>
+        <td class="nm"><button class="rep-link-btn" onclick="drillRep('${esc(r.name)}')">${esc(r.name)}</button></td>
+        <td class="c">${r.n}</td>
+        <td class="c" style="color:var(--red);font-weight:700">${r.over}</td>
+        <td>${r.over >= DISPO_OVER_ESCALATION ? '<span class="dispo-flag">🚩 escalate</span>' : ''}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<p style="color:var(--text-muted)">No over-credited calls in view. 🎉</p>';
+
+  // By LOB
+  const lob = group(r => normalizeLOB(val(r, D.LOB)) || 'Other');
+  const lobOrder = ['Cold', 'Recycled', 'Campaigns', 'Other'].filter(k => lob[k]);
+  const lobTable = `
+    <table class="dispo-table">
+      <thead><tr><th>Line of Business</th><th class="c">Calls</th><th class="c">Accuracy</th><th class="c">Over</th></tr></thead>
+      <tbody>${lobOrder.map(k => { const s = lob[k]; const acc = Math.round(s.acc / s.n * 100); return `<tr>
+        <td class="nm">${esc(k)}</td><td class="c">${s.n}</td>
+        <td class="c" style="font-weight:700;color:${scoreColor(acc)}">${acc}%</td>
+        <td class="c" style="color:var(--red);font-weight:600">${s.over || '·'}</td>
+      </tr>`; }).join('')}</tbody>
+    </table>`;
+
+  // Over-credited call log (coaching)
+  const shortDisp = t => String(t).replace('Connected - ', '').replace('Attempt - ', '').replace('Attempt -', '');
+  const lz = (txt, kind) => `<span class="dispo-lz ${kind}">${esc(shortDisp(txt))}</span>`;
+  const overCalls = rows.filter(r => vget(r) === 'Over-credited');
+  const logTable = overCalls.length ? `
+    <table class="dispo-table">
+      <thead><tr><th>Call</th><th>Rep</th><th>Manager</th><th>Tagged</th><th></th><th>Should be</th></tr></thead>
+      <tbody>${overCalls.map(r => `<tr>
+        <td><a class="rev-link" href="${REVENUE_IO_BASE}${esc(val(r, D.CALL_ID))}" target="_blank" rel="noopener">${esc(val(r, D.CALL_ID))}</a></td>
+        <td>${esc(val(r, D.AGENT))}</td>
+        <td class="sm">${esc(canonMgr(val(r, D.MANAGER)))}</td>
+        <td>${lz(val(r, D.SF_DISP), 'red')}</td>
+        <td style="color:var(--text-muted)">→</td>
+        <td>${lz(val(r, D.CORRECT), 'grn')}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '';
+
+  bodyEl.innerHTML = `
+    <div class="dispo-caveat">⚠️ <strong>Sampling note:</strong> measured only on QA-scored calls (≥~5 min, real transcripts), so "Attempt" dispositions skew under-credited by construction. The trustworthy signals are <strong>over-credited</strong> (pipeline integrity) and <strong>lateral</strong>. Showing all ${tot} logged calls.</div>
+    <div class="card"><h3 class="dispo-h">By Manager <span class="dispo-sub">mistag rate, worst first</span></h3>${mgrTable}</div>
+    <div class="card"><h3 class="dispo-h">🔴 Over-crediting Leaderboard <span class="dispo-sub">pipeline integrity · ≥${DISPO_OVER_ESCALATION} = escalate</span></h3>${overTable}</div>
+    <div class="card"><h3 class="dispo-h">By Line of Business</h3>${lobTable}</div>
+    ${logTable ? `<div class="card"><h3 class="dispo-h">Over-credited Calls <span class="dispo-sub">tagged → should be · ${overCalls.length} calls</span></h3>${logTable}</div>` : ''}
+  `;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2844,6 +2984,9 @@ function showTab(tabId) {
     'call-log':   () => buildCallLog(bookedRows, nbRows),
     'lob':        () => buildLOB(bookedRows, nbRows),
     'manager':    () => buildManager(bookedRows, nbRows),
+    // Disposition accuracy uses the standalone tab (period-independent baseline,
+    // keyed by Source not Date Scored) — always full unfiltered cache.
+    'dispo':      () => buildDispoAccuracy(dataCache.dispoRows || []),
     'rep-performance': () => buildRepPerformance(),
     // Reviewer tab always uses full unfiltered data — comparing reviewer quality
     // should not be affected by which week the period filter is set to. Derek's
@@ -2915,7 +3058,7 @@ async function loadData() {
       if (lastScoredEl) lastScoredEl.textContent = `Last scored: ${latest}`;
     }
 
-    dataCache = { bookedRows, nbRows, sdrMonths: data.sdrMonths || {} };
+    dataCache = { bookedRows, nbRows, sdrMonths: data.sdrMonths || {}, dispoRows: parseRows(data.dispo || []) };
     el('loading').classList.add('hidden');
     el('period-filter').classList.remove('hidden');
 

@@ -42,14 +42,14 @@ app.get('/api/data', async (req, res) => {
     const auth = buildAuth();
     const sheets = google.sheets({ version: 'v4', auth });
 
-    const [bookedRes, noBookingRes, humanBookedRes, humanNBRes] = await Promise.all([
+    const [bookedRes, noBookingRes, humanBookedRes, humanNBRes, dispoRes] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'Booked / LT!A1:AU',
+        range: 'Booked / LT!A1:AX',
       }),
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: 'No Booking!A1:AL',
+        range: 'No Booking!A1:AO',
       }),
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
@@ -58,6 +58,10 @@ app.get('/api/data', async (req, res) => {
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: 'QA Scoring No Booking!A1:AG',
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Disposition Accuracy!A1:J',
       }),
     ]);
 
@@ -84,6 +88,7 @@ app.get('/api/data', async (req, res) => {
       noBooking:    noBookingRes.data.values     || [],
       humanBooked:  humanBookedRes.data.values   || [],
       humanNB:      humanNBRes.data.values       || [],
+      dispo:        dispoRes.data.values         || [],
       sdrMonths,
       fetchedAt: new Date().toISOString(),
     });

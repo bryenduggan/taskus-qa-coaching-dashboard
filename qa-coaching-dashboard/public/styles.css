@@ -1776,3 +1776,87 @@ canvas { max-width: 100%; }
 .rp-flag-green { background: var(--green-dim); color: var(--green); }
 .rp-flag-amber { background: var(--amber-dim); color: var(--amber); }
 .rp-flag-red   { background: var(--red-dim);   color: var(--red); }
+
+/* ─── Disposition Accuracy tab ─────────────────────────────── */
+.dispo-caveat {
+  background: var(--blue-dim);
+  border: 1px solid rgba(21,85,160,0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.8125rem;
+  color: var(--blue-info);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.dispo-h {
+  font-size: 0.9375rem;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dispo-sub {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.dispo-table { width: 100%; border-collapse: collapse; }
+.dispo-table th {
+  text-align: left;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.dispo-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8125rem;
+  vertical-align: middle;
+}
+.dispo-table .c  { text-align: center; width: 56px; }
+.dispo-table .nm { font-weight: 600; }
+.dispo-table .sm { color: var(--text-muted); font-size: 0.75rem; }
+.dispo-bar {
+  display: flex;
+  height: 14px;
+  min-width: 150px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--border);
+}
+.dispo-bar span { display: block; height: 100%; }
+.dispo-legend {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+.dispo-legend span {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  margin: 0 4px 0 12px;
+  vertical-align: middle;
+}
+.dispo-flag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--red);
+  background: var(--red-dim);
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.dispo-lz {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.dispo-lz.red { background: var(--red-dim);   color: var(--red); }
+.dispo-lz.grn { background: var(--green-dim); color: var(--green); }
