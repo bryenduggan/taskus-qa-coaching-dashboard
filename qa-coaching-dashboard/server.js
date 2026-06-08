@@ -98,6 +98,50 @@ app.get('/api/data', async (req, res) => {
   }
 });
 
+// ─── Changelog (password-gated post-run learnings feed for Derek) ─────────────
+// The whole dashboard already sits behind Jobber Okta SSO; this is a second gate
+// so ONLY the holder of CHANGELOG_PASSWORD (Derek) can see the changelog feed.
+// HTTP Basic Auth, single shared secret from env. Fails CLOSED if unset.
+const CHANGELOG_PASSWORD = process.env.CHANGELOG_PASSWORD || '';
+
+function changelogAuth(req, res, next) {
+  if (!CHANGELOG_PASSWORD) {
+    return res.status(503).send('Changelog is not configured (CHANGELOG_PASSWORD is not set).');
+  }
+  const hdr = req.headers.authorization || '';
+  const m = hdr.match(/^Basic\s+(.+)$/i);
+  if (m) {
+    let decoded = '';
+    try { decoded = Buffer.from(m[1], 'base64').toString('utf8'); } catch (_e) { decoded = ''; }
+    const idx = decoded.indexOf(':');
+    const pass = idx >= 0 ? decoded.slice(idx + 1) : decoded; // ignore username, check password only
+    if (pass && pass === CHANGELOG_PASSWORD) return next();
+  }
+  res.set('WWW-Authenticate', 'Basic realm="QA Changelog", charset="UTF-8"');
+  return res.status(401).send('Authentication required.');
+}
+
+// Page is served from views/ (NOT public/), so express.static can't serve it unauthed.
+app.get('/changelog', changelogAuth, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'changelog.html'));
+});
+
+// Authed data endpoint — reads the standalone "Changelog" tab (A2:F).
+app.get('/changelog/data', changelogAuth, async (_req, res) => {
+  try {
+    const auth = buildAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Changelog!A2:F',
+    });
+    res.json({ rows: r.data.values || [], fetchedAt: new Date().toISOString() });
+  } catch (err) {
+    console.error('[/changelog/data] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
