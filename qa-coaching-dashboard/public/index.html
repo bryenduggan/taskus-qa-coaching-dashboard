@@ -64,6 +64,7 @@
       <div class="header-meta">
         <span id="last-scored" class="fetch-time" style="margin-right:8px"></span>
         <span id="fetch-time" class="fetch-time">Loading…</span>
+        <button class="refresh-btn export-btn" onclick="openExport()" title="Build a PDF / Slack report to send to the TaskUs team">⬇ Export</button>
         <a class="refresh-btn" href="/changelog" style="text-decoration:none;margin-right:8px" title="Run learnings &amp; skill changelog (password-protected)">📋 Changelog</a>
         <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
       </div>
@@ -418,6 +419,38 @@
 
   </main>
 
+  <!-- ══════════ Export / report builder (TaskUs hand-off) ══════════ -->
+  <div id="export-overlay" class="rpt-overlay hidden" onclick="if(event.target===this)closeExport()">
+    <div class="rpt-modal" role="dialog" aria-label="Export report for TaskUs">
+      <div class="rpt-modal-head">
+        <span class="rpt-modal-title">⬇ Export report for TaskUs</span>
+        <button class="rpt-x" onclick="closeExport()" aria-label="Close">✕</button>
+      </div>
+      <div class="rpt-modal-body" id="export-body"><!-- built by report.js --></div>
+      <div class="rpt-modal-foot">
+        <span id="export-estimate" class="rpt-estimate"></span>
+        <div class="rpt-foot-actions">
+          <button class="rpt-btn" onclick="copySlackSummary()" title="Copy a plain-text digest to paste into Slack">📋 Copy Slack summary</button>
+          <button class="rpt-btn rpt-btn-primary" onclick="generateReport()">Generate report →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-screen report preview — this is the print target -->
+  <div id="report-preview" class="rpt-preview hidden">
+    <div class="rpt-preview-bar">
+      <button class="rpt-btn" onclick="closePreview()">← Back to builder</button>
+      <span class="rpt-preview-title" id="report-preview-title"></span>
+      <div class="rpt-foot-actions">
+        <button class="rpt-btn" onclick="copySlackSummary()">📋 Copy Slack summary</button>
+        <button class="rpt-btn rpt-btn-primary" onclick="window.print()">🖨 Print / Save as PDF</button>
+      </div>
+    </div>
+    <div id="report-output" class="rpt-output"><!-- rendered report --></div>
+  </div>
+
   <script src="app.js"></script>
+  <script src="report.js"></script>
 </body>
 </html>
