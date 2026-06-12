@@ -88,9 +88,12 @@ Object.entries(LEGACY_MANAGER_MAP).forEach(([mgr, reps]) => reps.forEach(r => { 
 // case-insensitive); values are the rep's direct manager (pod lead).
 // To refresh: re-export the roster and regenerate this block. Name variants
 // (accents / token order / source typos) are included as extra keys.
-// NOTE: 'Jr P' is how the export labels this pod's lead (the former Kharlo De
-// Leon pod) — rename here if a cleaner display name is preferred.
+// NOTE: the export labelled the former Kharlo De Leon pod's lead as 'Jr P' —
+// Bryen confirmed that is Joseph Pastrana, so those reps are mapped to him.
 const REP_ROSTER = {
+  'geofrey flores': 'Jose Mari Lopez',
+  'geoffrey flores': 'Jose Mari Lopez',
+  'maria ruth judielle perez': 'Daizy Malate',
   'aileen salazar': 'Jose Mari Lopez',
   'aldarel samson': 'Emmanuel Lecaniel',
   'alex saberdo': 'Joseph Pastrana',
@@ -111,7 +114,7 @@ const REP_ROSTER = {
   'brian diether lobo': 'Grant Mendano',
   'carl adrian consulta': 'Emmanuel Lecaniel',
   'carlo anthony tanael': 'Daizy Malate',
-  'charles tobby jaca': 'Jr P',
+  'charles tobby jaca': 'Joseph Pastrana',
   'christian lanzar': 'Joseph Pastrana',
   'christian limosinero': 'Macky Zamora',
   'crismark cabugnason': 'Emmanuel Lecaniel',
@@ -135,12 +138,12 @@ const REP_ROSTER = {
   'grant kisha fernandez mendano': 'Macky Zamora',
   'harold philip reyes': 'Daizy Malate',
   'hed welch caraca': 'Daizy Malate',
-  'irish franchesca turla': 'Jr P',
+  'irish franchesca turla': 'Joseph Pastrana',
   'isaiah rhei lagrimas': 'Emmanuel Lecaniel',
-  'jaca charles tobby': 'Jr P',
-  'jade nino dela cerna': 'Jr P',
-  'jade niño dela cerna': 'Jr P',
-  'james dela vega': 'Jr P',
+  'jaca charles tobby': 'Joseph Pastrana',
+  'jade nino dela cerna': 'Joseph Pastrana',
+  'jade niño dela cerna': 'Joseph Pastrana',
+  'james dela vega': 'Joseph Pastrana',
   'jane bridgette domingo': 'Emmanuel Lecaniel',
   'janine limlengco': 'Daizy Malate',
   'jayson caniya': 'Emmanuel Lecaniel',
@@ -154,7 +157,7 @@ const REP_ROSTER = {
   'john daryl zamora': 'Joseph Pastrana',
   'john dave mangaoang': 'Emmanuel Lecaniel',
   'john emerson ada': 'Emmanuel Lecaniel',
-  'john hoefel relucio': 'Jr P',
+  'john hoefel relucio': 'Joseph Pastrana',
   'john isaac piccio': 'Daizy Malate',
   'john jerick moldes': 'Joseph Pastrana',
   'john lester anuat': 'Grant Mendano',
@@ -163,7 +166,7 @@ const REP_ROSTER = {
   'jose mari lopez': 'Macky Zamora',
   'joseph pastrana': 'Macky Zamora',
   'joshua patriarca': 'Daizy Malate',
-  'judy cebuano': 'Jr P',
+  'judy cebuano': 'Joseph Pastrana',
   'julian simon babaran': 'Jose Mari Lopez',
   'karl emmanuel concepcion': 'Emmanuel Lecaniel',
   'keith jazmine alis': 'Daizy Malate',
@@ -172,26 +175,26 @@ const REP_ROSTER = {
   'leonardo bustos': 'Emmanuel Lecaniel',
   'lodelle dizon': 'Daizy Malate',
   'loven tonogbanua': 'Daizy Malate',
-  'ma luisa padron': 'Jr P',
+  'ma luisa padron': 'Joseph Pastrana',
   'ma. april pangangan': 'Emmanuel Lecaniel',
   'macky zamora': 'Jada Kozdrowski',
-  'maebelle jasareno': 'Jr P',
+  'maebelle jasareno': 'Joseph Pastrana',
   'marc david esperanza': 'Joseph Pastrana',
   'marc dimayuga': 'Daizy Malate',
   'mariam daganta': 'Daizy Malate',
   'mariane kaye ruallo': 'Jose Mari Lopez',
   'marianne keith sales': 'Grant Mendano',
-  'mark eran akiko alim': 'Jr P',
+  'mark eran akiko alim': 'Joseph Pastrana',
   'mark levi delima': 'Grant Mendano',
   'markell manalo': 'Grant Mendano',
   'may de jesus': 'Emmanuel Lecaniel',
-  'mhaick justine rodulfo': 'Jr P',
+  'mhaick justine rodulfo': 'Joseph Pastrana',
   'mia tolentino': 'Emmanuel Lecaniel',
   'michael torres': 'Emmanuel Lecaniel',
-  'miral julgie franz': 'Jr P',
+  'miral julgie franz': 'Joseph Pastrana',
   'noel manhilot': 'Joseph Pastrana',
-  'nonoy koko': 'Jr P',
-  'patrick jayson alarcon': 'Jr P',
+  'nonoy koko': 'Joseph Pastrana',
+  'patrick jayson alarcon': 'Joseph Pastrana',
   'paul vitangcol': 'Grant Mendano',
   'pauline pichay': 'Jeff Clinth Caparas',
   'ralph lawrence jay hermosa': 'Daizy Malate',
@@ -202,25 +205,25 @@ const REP_ROSTER = {
   'renz christian fernandez': 'Grant Mendano',
   'renz gomez': 'Joseph Pastrana',
   'rhein jazrelle mendenueta': 'Joseph Pastrana',
-  'richard gopez': 'Jr P',
+  'richard gopez': 'Joseph Pastrana',
   'rictorino gonzales ii': 'Emmanuel Lecaniel',
   'robles jan paolo': 'Grant Mendano',
   'ronin bascon': 'Joseph Pastrana',
-  'ronin felisario': 'Jr P',
+  'ronin felisario': 'Joseph Pastrana',
   'rosalie padiernos': 'Jose Mari Lopez',
-  'sajid baider': 'Jr P',
+  'sajid baider': 'Joseph Pastrana',
   'sandre scott castro': 'Jose Mari Lopez',
   'santos vasquez': 'Joseph Pastrana',
-  'sheila may lasam': 'Jr P',
+  'sheila may lasam': 'Joseph Pastrana',
   'sherlie gondraneos': 'Emmanuel Lecaniel',
   'silverie ilagan': 'Emmanuel Lecaniel',
   'stephen samorin': 'Emmanuel Lecaniel',
   'sylvia bermiso': 'Jose Mari Lopez',
-  'veronica halili': 'Jr P',
-  'vince nicole tamayo': 'Jr P',
+  'veronica halili': 'Joseph Pastrana',
+  'vince nicole tamayo': 'Joseph Pastrana',
   'xela karrize mercader': 'Emmanuel Lecaniel',
   'yancy jet rimando': 'Emmanuel Lecaniel',
-  'ysabelle velasco': 'Jr P',
+  'ysabelle velasco': 'Joseph Pastrana',
 };
 
 // Display aliases — collapse a historical pod name onto its current canonical
@@ -228,10 +231,22 @@ const REP_ROSTER = {
 const MANAGER_ALIASES = {
   'Aki Lopez': 'Jose Mari Lopez',
   'Grant Kisha Fernandez Mendano': 'Grant Mendano',  // roster long-form → pod name
+  'Jr P': 'Joseph Pastrana',                          // export alias for Joseph Pastrana
 };
 function canonMgr(name) { return MANAGER_ALIASES[name] || name; }
 
 const UNASSIGNED = 'Unassigned';
+
+// ── Non-rep agents to EXCLUDE entirely ──────────────────────────────────────
+// These are NOT TaskUs SDRs and must never appear in the dashboard or any
+// report. When a lead converts to an opportunity in Salesforce, the call's
+// "agent" can get overwritten with the Jobber AE who took over the opp, so AE
+// names leak into the export. Drop any row whose agent is one of these. If a
+// new AE-looking / non-TaskUs name shows up, flag it to Bryen to confirm.
+const NON_REP_AGENTS = new Set([
+  'meelad omary',   // Jobber AE, not a TaskUs rep (confirmed by Bryen 2026-06-12)
+]);
+function isNonRep(name) { return NON_REP_AGENTS.has((name || '').toString().toLowerCase().trim()); }
 
 // Resolve a row's manager:
 //   1. the stamped Manager column (authoritative, written at scoring time)
@@ -3295,7 +3310,12 @@ async function loadData() {
       if (lastScoredEl) lastScoredEl.textContent = `Last scored: ${latest}`;
     }
 
-    dataCache = { bookedRows, nbRows, sdrMonths: data.sdrMonths || {}, dispoRows: parseRows(data.dispo || []) };
+    dataCache = {
+      bookedRows: bookedRows.filter(r => !isNonRep(val(r, B.AGENT))),
+      nbRows:     nbRows.filter(r => !isNonRep(val(r, N.AGENT))),
+      sdrMonths:  data.sdrMonths || {},
+      dispoRows:  parseRows(data.dispo || []).filter(r => !isNonRep(val(r, D.AGENT))),
+    };
     el('loading').classList.add('hidden');
     el('period-filter').classList.remove('hidden');
 
