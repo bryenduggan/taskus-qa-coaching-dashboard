@@ -2009,9 +2009,13 @@ canvas { max-width: 100%; }
   .rpt-preview { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; }
   .rpt-preview-bar { display: none !important; }
   .rpt-output { max-width: none; margin: 0; padding: 0; box-shadow: none; }
-  .rpt-break { page-break-before: always; break-before: page; }
-  .rpt-section, .rpt-rep, .rpt-kpi, .rpt-bar-row, tr { page-break-inside: avoid; break-inside: avoid; }
+  /* Continuous flow — NO forced page breaks. Large containers (.rpt-rep / .rpt-section)
+     must NOT use break-inside:avoid, or an over-a-page block jumps to the next sheet and
+     strands a blank page. Only keep small atomic units from splitting mid-element. */
+  .rpt-kpi, .rpt-bar-row, .rpt-chart, .rpt-themes li, .rpt-table tr, .rpt-rep-head {
+    page-break-inside: avoid; break-inside: avoid;
+  }
+  .rpt-h2, .rpt-h3 { page-break-after: avoid; break-after: avoid; }
   .rpt-table thead { display: table-header-group; }
-  .rpt-chart { page-break-inside: avoid; }
   .rpt-table a { color: #1555a0 !important; text-decoration: underline; }
 }
