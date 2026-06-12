@@ -80,22 +80,171 @@ const LEGACY_MANAGER_MAP = {
 const LEGACY_REP_TO_MANAGER = {};
 Object.entries(LEGACY_MANAGER_MAP).forEach(([mgr, reps]) => reps.forEach(r => { LEGACY_REP_TO_MANAGER[r] = mgr; }));
 
+// ── CURRENT rep → manager roster (source of truth) ──────────────────────────
+// Seeded from the TaskUs Users export (Active SDR-Agency-Outbound), 2026-06-09.
+// Used by managerOf() as the primary fallback when a row has no stamped Manager
+// column — this is what kills the "Unassigned" bucket for reps hired after the
+// frozen LEGACY_MANAGER_MAP. Keys are LOWERCASED agent names (lookup is
+// case-insensitive); values are the rep's direct manager (pod lead).
+// To refresh: re-export the roster and regenerate this block. Name variants
+// (accents / token order / source typos) are included as extra keys.
+// NOTE: 'Jr P' is how the export labels this pod's lead (the former Kharlo De
+// Leon pod) — rename here if a cleaner display name is preferred.
+const REP_ROSTER = {
+  'aileen salazar': 'Jose Mari Lopez',
+  'aldarel samson': 'Emmanuel Lecaniel',
+  'alex saberdo': 'Joseph Pastrana',
+  'alexander barredo': 'Daizy Malate',
+  'alfred retazo': 'Joseph Pastrana',
+  'alfrei hyde nakagawa': 'Daizy Malate',
+  'aljohn sebastian': 'Joseph Pastrana',
+  'alma cebreiros benitez': 'Daizy Malate',
+  'almafe divinagracia': 'Daizy Malate',
+  'amer brazal': 'Daizy Malate',
+  'andy heartynazck hugo': 'Grant Mendano',
+  'angelo okamoto': 'Grant Mendano',
+  'archie guinanao': 'Emmanuel Lecaniel',
+  'aries james adviento': 'Emmanuel Lecaniel',
+  'arkie apolinario': 'Jeff Clinth Caparas',
+  'bautista rozel': 'Joseph Pastrana',
+  'brandon david': 'Emmanuel Lecaniel',
+  'brian diether lobo': 'Grant Mendano',
+  'carl adrian consulta': 'Emmanuel Lecaniel',
+  'carlo anthony tanael': 'Daizy Malate',
+  'charles tobby jaca': 'Jr P',
+  'christian lanzar': 'Joseph Pastrana',
+  'christian limosinero': 'Macky Zamora',
+  'crismark cabugnason': 'Emmanuel Lecaniel',
+  'czarian lopez': 'Daizy Malate',
+  'daizy malate': 'Macky Zamora',
+  'edrian maraya': 'Grant Mendano',
+  'eillen mae cruz': 'Grant Mendano',
+  'ejay santos': 'Grant Mendano',
+  'elisha po': 'Grant Mendano',
+  'ellaiza grandiano': 'Daizy Malate',
+  'emmanuel lecaniel': 'Macky Zamora',
+  'ernielyn casuco': 'Daizy Malate',
+  'erpry acedo': 'Joseph Pastrana',
+  'evangelica babaan': 'Grant Mendano',
+  'franniella san mateo': 'Grant Mendano',
+  'gabriel maluya': 'Jose Mari Lopez',
+  'genito randolff': 'Joseph Pastrana',
+  'gerico delena': 'Daizy Malate',
+  'gino magat': 'Grant Mendano',
+  'godfrie malinao': 'Daizy Malate',
+  'grant kisha fernandez mendano': 'Macky Zamora',
+  'harold philip reyes': 'Daizy Malate',
+  'hed welch caraca': 'Daizy Malate',
+  'irish franchesca turla': 'Jr P',
+  'isaiah rhei lagrimas': 'Emmanuel Lecaniel',
+  'jaca charles tobby': 'Jr P',
+  'jade nino dela cerna': 'Jr P',
+  'jade niño dela cerna': 'Jr P',
+  'james dela vega': 'Jr P',
+  'jane bridgette domingo': 'Emmanuel Lecaniel',
+  'janine limlengco': 'Daizy Malate',
+  'jayson caniya': 'Emmanuel Lecaniel',
+  'jayzar cruz': 'Emmanuel Lecaniel',
+  'jeff clinth caparas': 'Macky Zamora',
+  'jenny rodriguez': 'Daizy Malate',
+  'jenzen abelardo': 'Joseph Pastrana',
+  'jerick labordo': 'Jose Mari Lopez',
+  'jessie tatad': 'Grant Mendano',
+  'johann sebastian miguel': 'Grant Mendano',
+  'john daryl zamora': 'Joseph Pastrana',
+  'john dave mangaoang': 'Emmanuel Lecaniel',
+  'john emerson ada': 'Emmanuel Lecaniel',
+  'john hoefel relucio': 'Jr P',
+  'john isaac piccio': 'Daizy Malate',
+  'john jerick moldes': 'Joseph Pastrana',
+  'john lester anuat': 'Grant Mendano',
+  'john mark albelda': 'Jose Mari Lopez',
+  'jose mari caro': 'Joseph Pastrana',
+  'jose mari lopez': 'Macky Zamora',
+  'joseph pastrana': 'Macky Zamora',
+  'joshua patriarca': 'Daizy Malate',
+  'judy cebuano': 'Jr P',
+  'julian simon babaran': 'Jose Mari Lopez',
+  'karl emmanuel concepcion': 'Emmanuel Lecaniel',
+  'keith jazmine alis': 'Daizy Malate',
+  'kevin oscar yumang': 'Jose Mari Lopez',
+  'kim ernest descallar': 'Jose Mari Lopez',
+  'leonardo bustos': 'Emmanuel Lecaniel',
+  'lodelle dizon': 'Daizy Malate',
+  'loven tonogbanua': 'Daizy Malate',
+  'ma luisa padron': 'Jr P',
+  'ma. april pangangan': 'Emmanuel Lecaniel',
+  'macky zamora': 'Jada Kozdrowski',
+  'maebelle jasareno': 'Jr P',
+  'marc david esperanza': 'Joseph Pastrana',
+  'marc dimayuga': 'Daizy Malate',
+  'mariam daganta': 'Daizy Malate',
+  'mariane kaye ruallo': 'Jose Mari Lopez',
+  'marianne keith sales': 'Grant Mendano',
+  'mark eran akiko alim': 'Jr P',
+  'mark levi delima': 'Grant Mendano',
+  'markell manalo': 'Grant Mendano',
+  'may de jesus': 'Emmanuel Lecaniel',
+  'mhaick justine rodulfo': 'Jr P',
+  'mia tolentino': 'Emmanuel Lecaniel',
+  'michael torres': 'Emmanuel Lecaniel',
+  'miral julgie franz': 'Jr P',
+  'noel manhilot': 'Joseph Pastrana',
+  'nonoy koko': 'Jr P',
+  'patrick jayson alarcon': 'Jr P',
+  'paul vitangcol': 'Grant Mendano',
+  'pauline pichay': 'Jeff Clinth Caparas',
+  'ralph lawrence jay hermosa': 'Daizy Malate',
+  'rashied amino': 'Grant Mendano',
+  'raul john dabandan': 'Joseph Pastrana',
+  'raul john dalandan': 'Joseph Pastrana',
+  'regil kent gipanao': 'Joseph Pastrana',
+  'renz christian fernandez': 'Grant Mendano',
+  'renz gomez': 'Joseph Pastrana',
+  'rhein jazrelle mendenueta': 'Joseph Pastrana',
+  'richard gopez': 'Jr P',
+  'rictorino gonzales ii': 'Emmanuel Lecaniel',
+  'robles jan paolo': 'Grant Mendano',
+  'ronin bascon': 'Joseph Pastrana',
+  'ronin felisario': 'Jr P',
+  'rosalie padiernos': 'Jose Mari Lopez',
+  'sajid baider': 'Jr P',
+  'sandre scott castro': 'Jose Mari Lopez',
+  'santos vasquez': 'Joseph Pastrana',
+  'sheila may lasam': 'Jr P',
+  'sherlie gondraneos': 'Emmanuel Lecaniel',
+  'silverie ilagan': 'Emmanuel Lecaniel',
+  'stephen samorin': 'Emmanuel Lecaniel',
+  'sylvia bermiso': 'Jose Mari Lopez',
+  'veronica halili': 'Jr P',
+  'vince nicole tamayo': 'Jr P',
+  'xela karrize mercader': 'Emmanuel Lecaniel',
+  'yancy jet rimando': 'Emmanuel Lecaniel',
+  'ysabelle velasco': 'Jr P',
+};
+
 // Display aliases — collapse a historical pod name onto its current canonical
 // name so they render as ONE pod. (Aki Lopez is the same person as Jose Mari Lopez.)
-const MANAGER_ALIASES = { 'Aki Lopez': 'Jose Mari Lopez' };
+const MANAGER_ALIASES = {
+  'Aki Lopez': 'Jose Mari Lopez',
+  'Grant Kisha Fernandez Mendano': 'Grant Mendano',  // roster long-form → pod name
+};
 function canonMgr(name) { return MANAGER_ALIASES[name] || name; }
 
 const UNASSIGNED = 'Unassigned';
 
 // Resolve a row's manager:
-//   1. the stamped Manager column (roster-authoritative, written at scoring time)
-//   2. else the frozen legacy map keyed by agent name
-//   3. else 'Unassigned'
+//   1. the stamped Manager column (authoritative, written at scoring time)
+//   2. else the CURRENT rep→manager roster (REP_ROSTER, case-insensitive)
+//   3. else the frozen legacy map keyed by agent name
+//   4. else 'Unassigned'
 // Always normalized through canonMgr() so aliased pods merge.
 function managerOf(row, rubric) {
   const stamped = (row[rubric === 'booked' ? B.MANAGER : N.MANAGER] || '').toString().trim();
   if (stamped) return canonMgr(stamped);
   const agent  = val(row, rubric === 'booked' ? B.AGENT : N.AGENT);
+  const roster = REP_ROSTER[agent.toLowerCase()];
+  if (roster) return canonMgr(roster);
   const legacy = LEGACY_REP_TO_MANAGER[agent];
   if (legacy) return canonMgr(legacy);
   return UNASSIGNED;
