@@ -2000,7 +2000,12 @@ canvas { max-width: 100%; }
 
 /* ══════════ Print stylesheet — pixel-for-pixel PDF ══════════ */
 @media print {
+  @page { size: portrait; margin: 14mm; }
+  html, body { background: #fff !important; }
   .header, .tab-nav-strip, #period-filter, main, #export-overlay, #loading, #error-state { display: none !important; }
+  /* Force background colors / fills to print even when Chrome's "Background graphics" box is off,
+     so the PDF matches the on-screen view (KPI accents, score bars, rep-head, avatars, chart fills). */
+  .rpt-preview, .rpt-preview * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   .rpt-preview { position: static !important; display: block !important; overflow: visible !important; background: #fff !important; }
   .rpt-preview-bar { display: none !important; }
   .rpt-output { max-width: none; margin: 0; padding: 0; box-shadow: none; }
@@ -2009,5 +2014,4 @@ canvas { max-width: 100%; }
   .rpt-table thead { display: table-header-group; }
   .rpt-chart { page-break-inside: avoid; }
   .rpt-table a { color: #1555a0 !important; text-decoration: underline; }
-  @page { margin: 14mm; }
 }

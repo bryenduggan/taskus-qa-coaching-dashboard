@@ -308,9 +308,9 @@ function sec_repFeedback(scope) {
   const map = repMap(scope);
   const reps = Object.keys(map).sort();
   if (!reps.length) return rptCard('Rep feedback', `<p class="rpt-note">No reps with scored calls in this scope.</p>`);
-  return reps.map(rep => renderRepFeedback(rep, map[rep])).join('');
+  return reps.map((rep, i) => renderRepFeedback(rep, map[rep], i)).join('');
 }
-function renderRepFeedback(rep, d) {
+function renderRepFeedback(rep, d, idx) {
   const repB = d.b || [], repN = d.n || [];
   const calls = repB.length + repN.length;
   const score = combinedAvg(repB, repN);
@@ -327,7 +327,7 @@ function renderRepFeedback(rep, d) {
   if (S.has('rf_trend'))     html += rf_trend(repB, repN);
   if (S.has('rf_calls'))     html += rf_calls(repB, repN);
   if (S.has('rf_autofails')) html += rf_autofails(repB, repN);
-  return `<section class="rpt-section rpt-break rpt-rep">${html}</section>`;
+  return `<section class="rpt-section rpt-rep${idx > 0 ? ' rpt-break' : ''}">${html}</section>`;
 }
 function rf_scores(rep, repB, repN) {
   const secAvgs = [];
