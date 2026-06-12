@@ -148,10 +148,11 @@ function callLink(id) { return REVENUE_IO_BASE + extractRcId(id); }
 
 /* ───────────────────── render primitives ───────────────────── */
 let _rptChartJobs = [];
+let _rptCharts = [];
 let _rptCid = 0;
 function rptChartCanvas(initFn, height) {
   const id = 'rpt-chart-' + (++_rptCid);
-  _rptChartJobs.push(() => { const c = el(id); if (c) initFn(c); });
+  _rptChartJobs.push(() => { const c = el(id); if (c) { try { _rptCharts.push(initFn(c)); } catch (e) { console.error('rpt chart', e); } } });
   return `<div class="rpt-chart" style="height:${height || 220}px"><canvas id="${id}"></canvas></div>`;
 }
 function rptBarOpts()  { return { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } } }; }
@@ -419,25 +420,32 @@ function reportHeader(scope) {
 
 function generateReport() {
   if (!dataCache) { alert('Dashboard data is still loading — give it a few seconds, then try again.'); return; }
-  _rptChartJobs = []; _rptCid = 0;
+  // Tear down charts from the previous run so reused canvas ids never render stale.
+  _rptCharts.forEach(ch => { try { ch && ch.destroy(); } catch (e) {} });
+  _rptCharts = []; _rptChartJobs = []; _rptCid = 0;
   const scope = rptScopedData();
   const parts = [reportHeader(scope)];
   const t = RPT.type, S = RPT.sections;
-  if (t === 'qa-leads') {
-    if (S.has('kpis'))        parts.push(sec_kpis(scope, false));
-    if (S.has('calibration')) parts.push(sec_calibration(scope));
-    if (S.has('trends'))      parts.push(sec_trends(scope));
-    if (S.has('managers'))    parts.push(sec_managers(scope));
-    if (S.has('dispo'))       parts.push(sec_dispo());
-  } else if (t === 'team-leads') {
-    if (S.has('kpis'))        parts.push(sec_kpis(scope, true));
-    if (S.has('reps'))        parts.push(sec_reps(scope));
-    if (S.has('dispo'))       parts.push(sec_dispo());
-    if (S.has('autofails'))   parts.push(sec_autofails(scope));
-    if (S.has('calibration')) parts.push(sec_calibration(scope));
-    if (S.has('trends'))      parts.push(sec_trends(scope));
-  } else if (t === 'rep-feedback') {
-    parts.push(sec_repFeedback(scope));
+  try {
+    if (t === 'qa-leads') {
+      if (S.has('kpis'))        parts.push(sec_kpis(scope, false));
+      if (S.has('calibration')) parts.push(sec_calibration(scope));
+      if (S.has('trends'))      parts.push(sec_trends(scope));
+      if (S.has('managers'))    parts.push(sec_managers(scope));
+      if (S.has('dispo'))       parts.push(sec_dispo());
+    } else if (t === 'team-leads') {
+      if (S.has('kpis'))        parts.push(sec_kpis(scope, true));
+      if (S.has('reps'))        parts.push(sec_reps(scope));
+      if (S.has('dispo'))       parts.push(sec_dispo());
+      if (S.has('autofails'))   parts.push(sec_autofails(scope));
+      if (S.has('calibration')) parts.push(sec_calibration(scope));
+      if (S.has('trends'))      parts.push(sec_trends(scope));
+    } else if (t === 'rep-feedback') {
+      parts.push(sec_repFeedback(scope));
+    }
+  } catch (e) {
+    console.error('report build', e);
+    parts.push(`<section class="rpt-section"><p class="rpt-note">Something went wrong building this report (${esc(e.message)}). Try a different scope, or check the console.</p></section>`);
   }
   el('report-output').innerHTML = parts.join('');
   el('report-preview-title').textContent = reportTitleText();
@@ -455,7 +463,11 @@ function generateReport() {
 function applyTypeDefaults(type) {
   RPT.type = type;
   RPT.sections = new Set(SECTIONS[type].filter(s => s.def).map(s => s.k));
-  if ((type === 'team-leads' || type === 'rep-feedback')) {
+  if (type === 'qa-leads') {
+    // Org-wide report with no manager picker — clear any manager filter carried
+    // over from a Team-leads / Rep-feedback selection so it doesn't stay scoped.
+    RPT.manager = 'all';
+  } else {
     const mgrs = allManagers();
     if (type === 'rep-feedback' && (RPT.manager === 'all' || !mgrs.includes(RPT.manager)) && mgrs.length) RPT.manager = mgrs[0];
   }
